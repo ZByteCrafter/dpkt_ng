@@ -150,7 +150,7 @@ class IEEE80211IEHE6GHzBand(IEEE80211IE):
         super().unpack(buf)
         if len(self.info) >= 1:
             self.ext_id = self.info[0]
-        if len(self.info) >= 5:
+        if len(self.info) >= 6:
             self.min_mcs = self.info[1]
             self.max_ampdu = struct.unpack('<I', self.info[2:6])[0] >> 2
         self.tx_power = self.info[6:] if len(self.info) > 6 else b''
