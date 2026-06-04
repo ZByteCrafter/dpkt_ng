@@ -1,5 +1,14 @@
 # Changelog
 
+## [Unreleased]
+
+### ⚠️ Breaking Changes
+- **SMB**: `SMB_CMD_OPEN` constant changed from `0xC0` to `0x02` to match MS-CIFS specification (`SMB_COM_OPEN`). If your code depended on the old value `0xC0` (`SMB_COM_OPEN_PRINT_FILE`), update accordingly.
+
+### Protocol Fixes
+- **SMB**: Fixed `SMB_FLAGS2_IS_LONG_NAME` (0x0040→0x0100) and `SMB_FLAGS2_REPARSE_PATH` (0x0400→0x0040) per MS-CIFS §2.2.3.1
+- **SMB2**: Unified offset guards across all command classes (TreeConnect, Create, Read, Write, Ioctl, QueryDirectory, QueryInfo, SetInfo)
+
 ## 1.9.8
 **[2022-08-17]**
 - Fixed endianness issues in PCAPNG, Loopback
