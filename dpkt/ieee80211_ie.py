@@ -206,8 +206,8 @@ class IEEE80211IEMLElement(IEEE80211IE):
             self.ext_id = self.info[0]
         if len(self.info) >= 3:
             self.ml_control = struct.unpack('<H', self.info[1:3])[0]
-            self.type = (self.ml_control >> 0) & 0x7
-            self.presence = (self.ml_control >> 3)
+            self.type = (self.ml_control >> 1) & 0x7
+            self.presence = (self.ml_control >> 4) & 0x1
         self.common_info = self.info[3:] if len(self.info) > 3 else b''
 
 
@@ -513,4 +513,5 @@ def test_ml_element():
     buf = bytes([255, len(info)]) + info
     ie = IEEE80211IEMLElement(buf)
     assert ie.ext_id == EHT_EXT_ML_COMMON
-    assert ie.type == 1
+    assert ie.type == 0       # was 1 (Extension bit bled into Type)
+    assert ie.presence == 0
