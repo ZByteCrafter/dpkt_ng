@@ -157,13 +157,47 @@ def get_frame_parser(frame_type):
     if 0x08 <= frame_type <= 0x0f: return QUICStreamFrame
     return _frame_sw.get(frame_type, QUICFrame)
 
+def _frame_byte_size(f, raw_buf):
+    """Calculate the total byte size of a parsed frame from its raw buffer."""
+    if f.type == FRAME_PADDING:
+        return 1
+    if isinstance(f, QUICCryptoFrame):
+        return len(f)
+    if isinstance(f, QUICStreamFrame):
+        sz = 1  # type byte
+        sz += len(encode_varint(f.stream_id))
+        if f.type & 0x04:  # OFF bit
+            sz += len(encode_varint(f.offset))
+        if f.type & 0x02:  # LEN bit
+            sz += len(encode_varint(f.length))
+        sz += len(f.data)
+        return sz
+    if isinstance(f, QUICAckFrame):
+        sz = 1  # type byte
+        sz += len(encode_varint(f.largest_ack))
+        sz += len(encode_varint(f.ack_delay))
+        sz += len(encode_varint(f.block_count))
+        sz += len(encode_varint(f.first_ack_range))
+        for gap, ack_len in f.blocks:
+            sz += len(encode_varint(gap)) + len(encode_varint(ack_len))
+        return sz
+    return len(f)  # QUICFrame.__len__ returns 1 for simple frames
+
+
 def parse_frames(buf):
     frames = []; off = 0
     while off < len(buf):
-        cls = get_frame_parser(buf[off])
-        f = cls(buf[off:]); frames.append(f)
-        if f.type == FRAME_PADDING: off += 1
-        else: off += 1  # Minimal: just advance past type byte for now
+        frame_type = buf[off]
+        if frame_type == FRAME_PADDING:
+            off += 1
+            continue
+        cls = get_frame_parser(frame_type)
+        try:
+            f = cls(buf[off:])
+            frames.append(f)
+            off += _frame_byte_size(f, buf[off:])
+        except (dpkt.NeedData, IndexError, struct.error):
+            break
     return frames
 
 # ---- QUIC Packet Header ----
