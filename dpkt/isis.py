@@ -108,6 +108,7 @@ class ISISLSPL1(_ISISTLVParser, dpkt.Packet):
         self.lsp_id = buf[4:12]
         self.seq = struct.unpack('>I', buf[12:16])[0]
         self.checksum = struct.unpack('>H', buf[16:18])[0]
+        self.flags = buf[18]  # P/ATT/overload/IS Type bits
         self.tlvs = self._parse_tlvs(buf[19:]); self.data = b''
 
 class ISISLSPL2(ISISLSPL1): _msg = 'lsp_l2'
