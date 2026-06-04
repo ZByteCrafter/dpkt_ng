@@ -60,6 +60,7 @@ class QPACKLiteralNameRef(QPACKInstruction):
         self.name_index, n = _decode_int(buf, 4)
         self.value_len, m = _decode_int(buf[n:], 7)
         self.value = buf[n+m:n+m+self.value_len]
+        self._consumed = n + m + self.value_len
 
 class QPACKLiteralLiteral(QPACKInstruction):
     """Literal Header Field With Literal Name (0x20/0x00)."""
@@ -70,6 +71,7 @@ class QPACKLiteralLiteral(QPACKInstruction):
         off = n + self.name_len
         self.value_len, m = _decode_int(buf[off:], 7)
         self.value = buf[off+m:off+m+self.value_len]
+        self._consumed = off + m + self.value_len
 
 class QPACKPostBase(QPACKInstruction):
     """Post-Base Indexed Header Field (0x10)."""
@@ -85,6 +87,7 @@ class QPACKEncoderInsertRef(QPACKInstruction):
         self.name_index, n = _decode_int(buf, 6)
         self.value_len, m = _decode_int(buf[n:], 7)
         self.value = buf[n+m:n+m+self.value_len]
+        self._consumed = n + m + self.value_len
 
 class QPACKEncoderInsertNoRef(QPACKInstruction):
     """Encoder: Insert Without Name Reference."""
@@ -95,6 +98,7 @@ class QPACKEncoderInsertNoRef(QPACKInstruction):
         off = n + self.name_len
         self.value_len, m = _decode_int(buf[off:], 7)
         self.value = buf[off+m:off+m+self.value_len]
+        self._consumed = off + m + self.value_len
 
 class QPACKDuplicate(QPACKInstruction):
     """Encoder: Duplicate."""
@@ -131,8 +135,12 @@ def parse_qpack_encoder(buf):
         elif buf[off] & 0x80: cls = QPACKEncoderInsertRef
         elif buf[off] & 0x40: cls = QPACKEncoderInsertNoRef
         else: break
-        insts.append(cls(buf[off:]))
-        off += 1  # minimum advance
+        try:
+            inst = cls(buf[off:])
+            insts.append(inst)
+            off += inst._consumed
+        except (IndexError, struct.error):
+            break
     return insts
 
 def parse_qpack_request(buf):
@@ -145,8 +153,12 @@ def parse_qpack_request(buf):
         elif b & 0x20: cls = QPACKLiteralLiteral
         elif b & 0x10: cls = QPACKPostBase
         else: break
-        insts.append(cls(buf[off:]))
-        off += 1
+        try:
+            inst = cls(buf[off:])
+            insts.append(inst)
+            off += inst._consumed
+        except (IndexError, struct.error):
+            break
     return insts
 
 
