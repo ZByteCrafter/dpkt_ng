@@ -41,7 +41,7 @@ LONG_INITIAL = 0; LONG_0RTT = 1; LONG_HANDSHAKE = 2; LONG_RETRY = 3
 FRAME_PADDING = 0; FRAME_PING = 1; FRAME_ACK = 2; FRAME_ACK_ECN = 3
 FRAME_RESET_STREAM = 4; FRAME_STOP_SENDING = 5; FRAME_CRYPTO = 6
 FRAME_NEW_TOKEN = 7; FRAME_STREAM = 8; FRAME_MAX_DATA = 16
-FRAME_MAX_STREAM_DATA = 17; FRAME_CONNECTION_CLOSE = 0x1c
+FRAME_MAX_STREAM_DATA = 17; FRAME_CONNECTION_CLOSE = 0x1c; FRAME_CONNECTION_CLOSE_APP = 0x1d
 
 # ---- Frame Base Class ----
 class QUICFrame(object):
@@ -136,14 +136,19 @@ class QUICConnectionCloseFrame(QUICFrame):
     def unpack(self, buf):
         self.type = buf[0]; off = 1
         self.error_code, n = decode_varint(buf, off); off += n
-        self.frame_type, n = decode_varint(buf, off); off += n
-        self.reason = buf[off:]
+        if self.type == FRAME_CONNECTION_CLOSE:  # 0x1c: transport close
+            self.frame_type, n = decode_varint(buf, off); off += n
+        else:  # 0x1d: application close, no frame_type field
+            self.frame_type = None
+        reason_len, n = decode_varint(buf, off); off += n
+        self.reason = buf[off:off + reason_len]
 
 # Frame dispatch
 _frame_sw = {
     FRAME_PADDING: QUICFrame, FRAME_PING: QUICFrame,
     FRAME_ACK: QUICAckFrame, FRAME_ACK_ECN: QUICAckFrame,
     FRAME_CRYPTO: QUICCryptoFrame, FRAME_CONNECTION_CLOSE: QUICConnectionCloseFrame,
+    FRAME_CONNECTION_CLOSE_APP: QUICConnectionCloseFrame,
     FRAME_MAX_DATA: QUICMaxDataFrame, FRAME_MAX_STREAM_DATA: QUICMaxStreamDataFrame,
 }
 
@@ -339,3 +344,18 @@ def test_quic_ack_frame():
     assert f.largest_ack == 10
     assert f.first_ack_range == 5
     assert f.block_count == 0
+
+def test_quic_connection_close():
+    """ConnectionClose transport (0x1c) vs app (0x1d)."""
+    # Transport close: error_code + frame_type + reason_len + reason
+    buf = bytes([FRAME_CONNECTION_CLOSE]) + encode_varint(1) + encode_varint(0x08) + encode_varint(3) + b'err'
+    f = QUICConnectionCloseFrame(buf)
+    assert f.error_code == 1
+    assert f.frame_type == 0x08
+    assert f.reason == b'err'
+    # App close: error_code + reason_len + reason (no frame_type)
+    buf2 = bytes([FRAME_CONNECTION_CLOSE_APP]) + encode_varint(2) + encode_varint(2) + b'ok'
+    f2 = QUICConnectionCloseFrame(buf2)
+    assert f2.error_code == 2
+    assert f2.frame_type is None
+    assert f2.reason == b'ok'
