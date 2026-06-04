@@ -86,7 +86,7 @@ class SMTPResponse(object):
     def __bytes__(self):
         if not self.lines: return b''
         result = []
-        code = str(self.code).encode()
+        code = ('%03d' % self.code).encode()
         last = len(self.lines) - 1
         for i, line in enumerate(self.lines):
             sep = b' ' if i == last else b'-'
