@@ -33,7 +33,7 @@ EIGRP_METRIC_EXTENDED = 0x0602
 
 # Address Family Identifiers
 AFI_IPV4 = 1
-AFI_IPV6 = 16384
+AFI_IPV6 = 2  # Standard AFI for IPv6
 
 
 class EIGRPTLV(object):
