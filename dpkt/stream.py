@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import socket
-import struct
 
 from . import dpkt
 from . import ethernet as eth_mod
@@ -544,6 +543,7 @@ def test_stream_reassembler_find():
 def test_stream_reassembler_feed_pcap():
     """feed_pcap() iterates pcap Reader and calls feed()."""
     import io
+    import struct
     tcp_pkt = tcp_mod.TCP(sport=12345, dport=80, seq=0, flags=tcp_mod.TH_SYN, data=b'')
     ip_pkt = ip_mod.IP(src=b'\x0a\x00\x00\x01', dst=b'\x0a\x00\x00\x02', p=6, data=tcp_pkt)
     eth_pkt = eth_mod.Ethernet(src=b'\x00' * 6, dst=b'\x00' * 6, type=eth_mod.ETH_TYPE_IP, data=ip_pkt)
