@@ -72,6 +72,8 @@ class DirectionBuffer(object):
                     new_start = self.next_seq - seg_rel_seq
                     self.contiguous.extend(seg_data[new_start:])
                     self.next_seq += len(seg_data) - new_start
+            # Update total_buffered after cascade merge
+            self.total_buffered = len(self.contiguous) + sum(len(d) for _, _, d in self.segments)
         else:
             # Out-of-order: insert sorted by rel_seq
             self.segments.append((rel_seq, ack, payload))
@@ -97,6 +99,8 @@ class DirectionBuffer(object):
                 else:
                     merged.append(seg)
             self.segments = merged
+            # Recalculate total_buffered after merge
+            self.total_buffered = len(self.contiguous) + sum(len(d) for _, _, d in self.segments)
 
     def get_data(self, fill_gaps=False):
         if fill_gaps:
