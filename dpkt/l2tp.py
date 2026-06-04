@@ -371,7 +371,7 @@ L2TP._msg_sw.update({
 # ---- Tests ----
 def test_l2tp_header():
     # T=1,L=1,S=1,ver=2,len=20,tid=1,sid=0  + Ns=0,Nr=0 + MsgType AVP (SCCRQ)
-    buf = struct.pack('>HHHH', 0xC882, 20, 1, 0) + struct.pack('>HH', 0, 0) + struct.pack('>HHHH', 0x8008, 0, 0, 1)
+    buf = struct.pack('>HHHH', 0xC802, 20, 1, 0) + struct.pack('>HH', 0, 0) + struct.pack('>HHHH', 0x8008, 0, 0, 1)
     pkt = L2TP(buf)
     assert pkt.is_control
     assert pkt.version == 2
