@@ -97,10 +97,10 @@ class IEEE80211IEHECapability(IEEE80211IE):
         super().unpack(buf)
         if len(self.info) >= 1:
             self.ext_id = self.info[0]
-        if len(self.info) >= 6:
-            self.mac_info = self.info[1:6]
-        if len(self.info) >= 17:
-            self.phy_info = self.info[6:17]
+        if len(self.info) >= 7:
+            self.mac_info = self.info[1:7]
+        if len(self.info) >= 18:
+            self.phy_info = self.info[7:18]
 
 
 class IEEE80211IEHEOperation(IEEE80211IE):
@@ -130,8 +130,8 @@ class IEEE80211IEHEBSSColorChange(IEEE80211IE):
         super().unpack(buf)
         if len(self.info) >= 3:
             self.ext_id = self.info[0]
-            self.new_color = self.info[1]
-            self.countdown = self.info[2]
+            self.countdown = self.info[1]
+            self.new_color = self.info[2]
 
 
 class IEEE80211IEHETWT(IEEE80211IE):
@@ -150,7 +150,7 @@ class IEEE80211IEHE6GHzBand(IEEE80211IE):
         super().unpack(buf)
         if len(self.info) >= 1:
             self.ext_id = self.info[0]
-        if len(self.info) >= 5:
+        if len(self.info) >= 6:
             self.min_mcs = self.info[1]
             self.max_ampdu = struct.unpack('<I', self.info[2:6])[0] >> 2
         self.tx_power = self.info[6:] if len(self.info) > 6 else b''
@@ -171,11 +171,11 @@ class IEEE80211IEEHTCapability(IEEE80211IE):
         super().unpack(buf)
         if len(self.info) >= 1:
             self.ext_id = self.info[0]
-        if len(self.info) >= 5:
-            self.mac_cap = self.info[1:5]
-        if len(self.info) >= 13:
-            self.phy_cap = self.info[5:13]
-        self.eht_mcs_nss = self.info[13:]
+        if len(self.info) >= 3:
+            self.mac_cap = self.info[1:3]
+        if len(self.info) >= 12:
+            self.phy_cap = self.info[3:12]
+        self.eht_mcs_nss = self.info[12:]
 
 
 class IEEE80211IEEHTOperation(IEEE80211IE):
@@ -206,8 +206,8 @@ class IEEE80211IEMLElement(IEEE80211IE):
             self.ext_id = self.info[0]
         if len(self.info) >= 3:
             self.ml_control = struct.unpack('<H', self.info[1:3])[0]
-            self.type = (self.ml_control >> 0) & 0x7
-            self.presence = (self.ml_control >> 3)
+            self.type = (self.ml_control >> 1) & 0x7
+            self.presence = (self.ml_control >> 4) & 0x1
         self.common_info = self.info[3:] if len(self.info) > 3 else b''
 
 
@@ -253,8 +253,8 @@ class IEEE80211IEVHTOperation(IEEE80211IE):
         if len(self.info) >= 5:
             self.ch_width = self.info[0]
             self.ch1 = self.info[1]
-            self.ch2 = struct.unpack('<H', self.info[2:4])[0]
-            self.basic_mcs = struct.unpack('<H', self.info[4:6])[0]
+            self.ch2 = self.info[2]
+            self.basic_mcs = struct.unpack('<H', self.info[3:5])[0]
 
 
 class IEEE80211IEERP(IEEE80211IE):
@@ -452,12 +452,15 @@ def test_wmm_ie():
 
 
 def test_he_cap_ie():
-    """HE Capabilities via extension tag."""
-    info = bytes([HE_EXT_CAP]) + b'\x00' * 5 + b'\x00' * 11
+    """HE Capabilities with correct field sizes."""
+    # ext_id(1) + mac_cap(6) + phy_cap(11) = 18 bytes
+    info = bytes([HE_EXT_CAP]) + b'\x00' * 6 + b'\x00' * 11
     buf = bytes([255, len(info)]) + info
     ie = IEEE80211IEHECapability(buf)
     assert ie.id == 255
     assert ie.ext_id == HE_EXT_CAP
+    assert len(ie.mac_info) == 6
+    assert len(ie.phy_info) == 11
 
 
 def test_he_op_ie():
@@ -472,8 +475,8 @@ def test_bss_color_change_ie():
     info = bytes([HE_EXT_BSS_COLOR]) + bytes([10]) + bytes([5])
     buf = bytes([255, len(info)]) + info
     ie = IEEE80211IEHEBSSColorChange(buf)
-    assert ie.new_color == 10
-    assert ie.countdown == 5
+    assert ie.countdown == 10
+    assert ie.new_color == 5
 
 
 def test_extension_tag_unpack():
@@ -486,11 +489,15 @@ def test_extension_tag_unpack():
 
 
 def test_eht_cap_ie():
-    info = bytes([EHT_EXT_CAP]) + b'\x00' * 4 + b'\x00' * 8
+    """EHT Capabilities with correct field sizes."""
+    # ext_id(1) + mac_cap(2) + phy_cap(9) = 12 bytes
+    info = bytes([EHT_EXT_CAP]) + b'\x00' * 2 + b'\x00' * 9
     buf = bytes([255, len(info)]) + info
     ie = IEEE80211IEEHTCapability(buf)
     assert ie.id == 255
     assert ie.ext_id == EHT_EXT_CAP
+    assert len(ie.mac_cap) == 2
+    assert len(ie.phy_cap) == 9
 
 
 def test_eht_op_ie():
@@ -506,4 +513,5 @@ def test_ml_element():
     buf = bytes([255, len(info)]) + info
     ie = IEEE80211IEMLElement(buf)
     assert ie.ext_id == EHT_EXT_ML_COMMON
-    assert ie.type == 1
+    assert ie.type == 0       # was 1 (Extension bit bled into Type)
+    assert ie.presence == 0
