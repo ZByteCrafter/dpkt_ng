@@ -160,7 +160,9 @@ class TopologyBuilder(object):
                         self.links.append(Link(rid2, rid, 0, 'transit', 'ospf'))
                 elif isinstance(lsa, ospf_mod.LSAASExternal):
                     nh = _inet_to_str(lsa.forwarding) if lsa.forwarding else rid
-                    self.prefixes.append(Prefix('0.0.0.0', 0, nh, lsa.metric, 'ospf', 'external'))
+                    net = _inet_to_str(struct.pack('>I', lsa.id))
+                    mask_bits = bin(lsa.mask).count('1') if hasattr(lsa, 'mask') and lsa.mask else 0
+                    self.prefixes.append(Prefix(net, mask_bits, nh, lsa.metric, 'ospf', 'external'))
 
     def _extract_isis(self, isis):
         """IS-IS: process LSP TLVs."""
