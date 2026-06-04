@@ -1,7 +1,11 @@
 # -*- coding: utf-8 -*-
 """File carving from network captures."""
 from __future__ import absolute_import, print_function
-import re, base64, quopri, io
+import re
+import base64
+import quopri
+import io
+import socket
 
 
 class ExtractedFile(object):
@@ -80,9 +84,12 @@ class FileCarver(object):
         sport, dport = pkt.sport, pkt.dport
         # Feed to stream reassembler
         self._reasm.feed(ip, pkt)
-        # Track protocol by port
-        conn_id = ('.'.join(str(b) for b in ip.src) if isinstance(ip.src, bytes) else str(ip.src),
-                   sport, '.'.join(str(b) for b in ip.dst) if isinstance(ip.dst, bytes) else str(ip.dst), dport)
+        # Track protocol by port using normalized conn_id (same as StreamReassembler)
+        src_ip = socket.inet_ntoa(ip.src) if isinstance(ip.src, bytes) else str(ip.src)
+        dst_ip = socket.inet_ntoa(ip.dst) if isinstance(ip.dst, bytes) else str(ip.dst)
+        a = (src_ip, sport)
+        b = (dst_ip, dport)
+        conn_id = a + b if a <= b else b + a
         proto = self._detect_protocol(sport, dport)
         if conn_id not in self._streams:
             self._streams[conn_id] = {'proto': proto}
