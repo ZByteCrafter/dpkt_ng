@@ -30,7 +30,7 @@ class MIMEParser(object):
         if not m: return results
         boundary = b'--' + m.group(1)
         parts = raw_email.split(boundary)
-        for part in parts:
+        for part in parts[1:]:  # Skip preamble before first boundary
             if b'Content-Disposition' not in part: continue
             fn_match = re.search(rb'filename="?([^"\r\n]+)"?', part)
             filename = fn_match.group(1).decode('latin-1', errors='replace') if fn_match else 'attachment'
