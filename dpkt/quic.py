@@ -229,15 +229,21 @@ class QUICLongHeader(dpkt.Packet):
         self.dcid = buf[off:off+self.dcid_len]; off += self.dcid_len
         self.scid_len = buf[off]; off += 1
         self.scid = buf[off:off+self.scid_len]; off += self.scid_len
+        # Retry packet: token + 16-byte integrity tag, no Length/PN/payload
+        if self.long_pkt_type == LONG_RETRY:
+            self.retry_token = buf[off:-16]
+            self.retry_integrity_tag = buf[-16:]
+            self.pkt_number = b''
+            self.data = b''
+            self.frames = []
+            return
         if self.long_pkt_type == LONG_INITIAL:
             self.token_len, n = decode_varint(buf, off); off += n
             self.token = buf[off:off+self.token_len]; off += self.token_len
         self.length, n = decode_varint(buf, off); off += n
         remaining = buf[off:off+self.length]
         off += self.length
-        n_bytes = (self.flags & 3) + 1  # RFC 9000 §17.2: 0b00→1, 0b01→2, 0b10→3, 0b11→4
-        if self.long_pkt_type == LONG_INITIAL and (self.flags & 3) == 2:
-            n_bytes = 4  # Initial: 0b10 → 4 bytes
+        n_bytes = (self.flags & 3) + 1  # RFC 9000 §17.2: 0b00->1, 0b01->2, 0b10->3, 0b11->4
         self.pkt_number = remaining[:n_bytes]
         self.__hdr_len__ = off + n_bytes
         payload = remaining[n_bytes:]
@@ -393,3 +399,19 @@ def test_quic_connection_close():
     assert f2.error_code == 2
     assert f2.frame_type is None
     assert f2.reason == b'ok'
+
+def test_quic_retry_packet():
+    """QUIC Long Header Retry packet."""
+    token = b'retry_token_data'
+    tag = b'\x00' * 16  # 16-byte integrity tag
+    buf = (bytes([0xf0]) +                # flags: long pkt type 3 (RETRY)
+           struct.pack('>I', 0xff00001d) + # version
+           bytes([4]) + b'\x01\x02\x03\x04' +  # dcid
+           bytes([0]) +                    # scid (empty)
+           token + tag)
+    pkt = QUIC(buf)
+    assert isinstance(pkt, QUICLongHeader)
+    assert pkt.long_pkt_type == LONG_RETRY
+    assert pkt.retry_token == token
+    assert pkt.retry_integrity_tag == tag
+    assert pkt.frames == []
