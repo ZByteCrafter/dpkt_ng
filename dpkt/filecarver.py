@@ -51,11 +51,11 @@ class MIMEParser(object):
                 try:
                     body = re.sub(rb'\s', b'', body)
                     body = base64.b64decode(body)
-                except: pass
+                except Exception: pass
             elif encoding == b'quoted-printable':
                 try:
                     buf = io.BytesIO(); quopri.decode(io.BytesIO(body), buf); body = buf.getvalue()
-                except: pass
+                except Exception: pass
             mime_type = ''
             mt_match = re.search(rb'Content-Type:\s*([^\r\n;]+)', part, re.IGNORECASE)
             if mt_match: mime_type = mt_match.group(1).decode('latin-1', errors='replace')
@@ -137,7 +137,7 @@ class FileCarver(object):
             f = ExtractedFile(filename, body, 'http')
             f.direction = direction; f.mime_type = mime
             self.files.append(f)
-        except: pass
+        except Exception: pass
 
     def _carve_http_request(self, data, conn_id, direction):
         try:
@@ -155,7 +155,7 @@ class FileCarver(object):
             f = ExtractedFile(filename, body, 'http')
             f.direction = 'upload'
             self.files.append(f)
-        except: pass
+        except Exception: pass
 
     def _carve_ftp(self, data_c2s, data_s2c, conn_id):
         """Extract files from FTP data connections."""
@@ -225,7 +225,7 @@ class FileCarver(object):
                     elif isinstance(pkt.data, smb2_mod.SMB2Write) and getattr(pkt.data, 'file_data', b''):
                         f = ExtractedFile('smb_write', pkt.data.file_data, 'smb')
                         f.direction = 'upload'; self.files.append(f)
-            except: pass
+            except Exception: pass
             # Try SMB1
             try:
                 if data[:4] == b'\xffSMB':
@@ -234,7 +234,7 @@ class FileCarver(object):
                         if hasattr(cmd, 'file_data') and cmd.file_data:
                             f = ExtractedFile('smb1_file', cmd.file_data, 'smb')
                             self.files.append(f)
-            except: pass
+            except Exception: pass
 
     def export_files(self, directory):
         import os
