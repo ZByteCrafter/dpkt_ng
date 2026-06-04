@@ -215,7 +215,7 @@ class IMAPStreamParser(object):
         """Dispatch a line to commands or responses."""
         stripped = line.rstrip(b'\r\n')
         if stripped.startswith(b'*') or stripped.startswith(b'+') or \
-           (len(stripped.split(b' ', 1)) >= 2 and stripped.split(b' ', 1)[1][:2] in (b'OK', b'NO', b'BA')):
+           (len(stripped.split(b' ', 1)) >= 2 and stripped.split(b' ', 1)[1].split(b' ', 1)[0] in (b'OK', b'NO', b'BAD')):
             resp = IMAPResponse(line)
             self.responses.append(resp)
         else:
