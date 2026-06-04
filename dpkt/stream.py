@@ -159,7 +159,19 @@ class Connection(object):
             self.s2c.feed(seq, ack, data, flags)
 
     def merged_data(self, fill_gaps=False):
-        """Return a single byte sequence with both directions ordered by seq/ack causality."""
+        """Return a single byte sequence with both directions ordered by seq/ack causality.
+
+        WARNING: This method clears both c2s and s2c buffers after merging.
+        The returned data is consumed — calling merged_data() again will return
+        only new data received after this call. Use get_data() on individual
+        DirectionBuffers if you need non-destructive reads.
+
+        Args:
+            fill_gaps: If True, fill gaps with zero bytes. If False, only
+                       output contiguous data (gaps cause truncation).
+        Returns:
+            Merged bytes from both directions, or b'' if no data available.
+        """
         items = []  # [(dir, rel_seq, ack, data), ...]
         # c2s contiguous
         if self.c2s.contiguous:

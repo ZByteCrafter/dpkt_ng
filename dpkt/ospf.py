@@ -274,8 +274,12 @@ class LSARouterV3(LSAv3Header):
                                 link['interface_id'], link['neighbor_interface_id'],
                                 link['neighbor_router'])
         # Update LSA length field to include header + body (RFC 5340 §A.4.2)
+        # Save/restore to avoid side-effect on self.len
+        orig_len = self.len
         self.len = self.__hdr_len__ + len(body)
-        return self.pack_hdr() + body
+        hdr = self.pack_hdr()
+        self.len = orig_len
+        return hdr + body
 
     def __len__(self):
         return self.__hdr_len__ + 4 + 16 * len(self.links)
@@ -300,8 +304,11 @@ class LSANetworkV3(LSAv3Header):
         body = self.opts + b'\x00'
         for r in self.routers:
             body += struct.pack('>I', r)
+        orig_len = self.len
         self.len = self.__hdr_len__ + len(body)
-        return self.pack_hdr() + body
+        hdr = self.pack_hdr()
+        self.len = orig_len
+        return hdr + body
 
     def __len__(self):
         return self.__hdr_len__ + 4 + 4 * len(self.routers)
@@ -318,8 +325,11 @@ class LSAInterAreaPrefix(LSAv3Header):
 
     def __bytes__(self):
         body = struct.pack('>I', self.metric << 8)[:3] + bytes([self.prefix_length]) + self.prefix
+        orig_len = self.len
         self.len = self.__hdr_len__ + len(body)
-        return self.pack_hdr() + body
+        hdr = self.pack_hdr()
+        self.len = orig_len
+        return hdr + body
 
     def __len__(self):
         return self.__hdr_len__ + 4 + len(self.prefix)
@@ -337,8 +347,11 @@ class LSAInterAreaRouter(LSAv3Header):
     def __bytes__(self):
         body = self.opts + bytes([self.rsv])
         body += struct.pack('>I', self.metric << 8)[:3] + struct.pack('>I', self.dest_router)
+        orig_len = self.len
         self.len = self.__hdr_len__ + len(body)
-        return self.pack_hdr() + body
+        hdr = self.pack_hdr()
+        self.len = orig_len
+        return hdr + body
 
     def __len__(self):
         return self.__hdr_len__ + 11
@@ -365,8 +378,11 @@ class LSAASExternalV3(LSAv3Header):
         body = bytes([self.flags]) + struct.pack('>I', self.metric << 8)[:3]
         body += bytes([self.prefix_length]) + self.prefix
         body += struct.pack('>II', self.forwarding, self.tag)
+        orig_len = self.len
         self.len = self.__hdr_len__ + len(body)
-        return self.pack_hdr() + body
+        hdr = self.pack_hdr()
+        self.len = orig_len
+        return hdr + body
 
     def __len__(self):
         return self.__hdr_len__ + 5 + len(self.prefix) + 8

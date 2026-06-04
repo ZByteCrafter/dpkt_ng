@@ -258,6 +258,14 @@ class QUICLongHeader(dpkt.Packet):
         Args:
             keys: QUICKeys object with header/payload protection keys.
         Returns: QUICDecryptedPacket with plaintext packet number and frames.
+
+        TODO: This is a placeholder. Real QUIC decryption requires:
+        - Header protection removal (AES-ECB or ChaCha20)
+        - Packet number decoding (XOR with masked bits)
+        - Payload decryption (AES-128-GCM or ChaCha20-Poly1305)
+        - AEAD nonce construction from packet number + IV
+        Currently only parses packet number from raw bytes and returns
+        unencrypted payload for structural analysis.
         """
         pkt_num_bytes = self.pkt_number
         pkt_num = 0
