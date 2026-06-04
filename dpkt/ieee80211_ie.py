@@ -171,11 +171,11 @@ class IEEE80211IEEHTCapability(IEEE80211IE):
         super().unpack(buf)
         if len(self.info) >= 1:
             self.ext_id = self.info[0]
-        if len(self.info) >= 5:
-            self.mac_cap = self.info[1:5]
-        if len(self.info) >= 13:
-            self.phy_cap = self.info[5:13]
-        self.eht_mcs_nss = self.info[13:]
+        if len(self.info) >= 3:
+            self.mac_cap = self.info[1:3]
+        if len(self.info) >= 12:
+            self.phy_cap = self.info[3:12]
+        self.eht_mcs_nss = self.info[12:]
 
 
 class IEEE80211IEEHTOperation(IEEE80211IE):
@@ -489,11 +489,15 @@ def test_extension_tag_unpack():
 
 
 def test_eht_cap_ie():
-    info = bytes([EHT_EXT_CAP]) + b'\x00' * 4 + b'\x00' * 8
+    """EHT Capabilities with correct field sizes."""
+    # ext_id(1) + mac_cap(2) + phy_cap(9) = 12 bytes
+    info = bytes([EHT_EXT_CAP]) + b'\x00' * 2 + b'\x00' * 9
     buf = bytes([255, len(info)]) + info
     ie = IEEE80211IEEHTCapability(buf)
     assert ie.id == 255
     assert ie.ext_id == EHT_EXT_CAP
+    assert len(ie.mac_cap) == 2
+    assert len(ie.phy_cap) == 9
 
 
 def test_eht_op_ie():
