@@ -6,14 +6,26 @@ from . import dpkt
 
 # ---- Variable-Length Integer (RFC 9000 §16) ----
 def decode_varint(buf, offset=0):
-    """Decode QUIC variable-length integer. Returns (value, bytes_consumed)."""
-    if offset >= len(buf): return 0, 0
+    """Decode QUIC variable-length integer. Returns (value, bytes_consumed).
+    Raises dpkt.NeedData if buffer is too short."""
+    if offset >= len(buf):
+        raise dpkt.NeedData('varint: buffer too short')
     b = buf[offset]
     tag = b >> 6
-    if tag == 0: return (b & 0x3f, 1)
-    elif tag == 1: return (struct.unpack('>H', buf[offset:offset+2])[0] & 0x3fff, 2)
-    elif tag == 2: return (struct.unpack('>I', buf[offset:offset+4])[0] & 0x3fffffff, 4)
-    else: return (struct.unpack('>Q', buf[offset:offset+8])[0] & 0x3fffffffffffffff, 8)
+    if tag == 0:
+        return (b & 0x3f, 1)
+    elif tag == 1:
+        if offset + 2 > len(buf):
+            raise dpkt.NeedData('varint: need 2 bytes')
+        return (struct.unpack('>H', buf[offset:offset+2])[0] & 0x3fff, 2)
+    elif tag == 2:
+        if offset + 4 > len(buf):
+            raise dpkt.NeedData('varint: need 4 bytes')
+        return (struct.unpack('>I', buf[offset:offset+4])[0] & 0x3fffffff, 4)
+    else:
+        if offset + 8 > len(buf):
+            raise dpkt.NeedData('varint: need 8 bytes')
+        return (struct.unpack('>Q', buf[offset:offset+8])[0] & 0x3fffffffffffffff, 8)
 
 def encode_varint(v):
     """Encode value as QUIC variable-length integer."""
