@@ -499,9 +499,11 @@ class SMB2QueryDirectory(dpkt.Packet):
             self.file_name = buf[fn_start:fn_start + self.file_name_length]
         else:
             self.file_name = b''
-        out_start = self.output_offset - SMB2_HDR_SIZE if self.output_offset >= SMB2_HDR_SIZE else 0
-        if self.output_length:
+        if self.output_offset >= SMB2_HDR_SIZE and self.output_length:
+            out_start = self.output_offset - SMB2_HDR_SIZE
             self.output_data = buf[out_start:out_start + self.output_length]
+        else:
+            self.output_data = b''
         self.data = b''
 
     def __bytes__(self):
