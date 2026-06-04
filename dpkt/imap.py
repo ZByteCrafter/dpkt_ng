@@ -179,8 +179,14 @@ class IMAPStreamParser(object):
         while True:
             if self._lit_pending:
                 if len(self._buffer) >= self._lit_pending:
+                    lit_data = self._buffer[:self._lit_pending]
                     self._buffer = self._buffer[self._lit_pending:]
                     self._lit_pending = 0
+                    # Combine pending line with literal data
+                    if hasattr(self, '_pending_line') and self._pending_line:
+                        combined = self._pending_line + lit_data
+                        self._dispatch_line(combined)
+                        self._pending_line = None
                 else:
                     break  # wait for more literal data
 
@@ -203,12 +209,17 @@ class IMAPStreamParser(object):
                     continue
 
             # Dispatch line
-            if stripped.startswith(b'*') or stripped.startswith(b'+') or \
-               (len(stripped.split(b' ', 1)) >= 2 and stripped.split(b' ', 1)[1][:2] in (b'OK', b'NO', b'BA')):
-                resp = IMAPResponse(line)
-                self.responses.append(resp)
-            else:
-                self.commands.append(IMAPCommand(line))
+            self._dispatch_line(line)
+
+    def _dispatch_line(self, line):
+        """Dispatch a line to commands or responses."""
+        stripped = line.rstrip(b'\r\n')
+        if stripped.startswith(b'*') or stripped.startswith(b'+') or \
+           (len(stripped.split(b' ', 1)) >= 2 and stripped.split(b' ', 1)[1].split(b' ', 1)[0] in (b'OK', b'NO', b'BAD')):
+            resp = IMAPResponse(line)
+            self.responses.append(resp)
+        else:
+            self.commands.append(IMAPCommand(line))
 
 
 # ---- Tests ----

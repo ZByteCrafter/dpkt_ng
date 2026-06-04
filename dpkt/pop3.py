@@ -110,8 +110,7 @@ class POP3(object):
                 self._ml_buffer.append(stripped)
                 if stripped == b'.':  # multiline terminator
                     raw = b'\r\n'.join(self._ml_buffer) + b'\r\n'
-                    self.responses.append(POP3Response(
-                        self._ml_start + b' ' + raw))
+                    self.responses.append(POP3Response(raw))
                     self._in_multiline = False
                 self._buffer = self._buffer[idx:]
                 continue
@@ -149,8 +148,7 @@ class POP3(object):
                 self._ml_buffer.append(stripped)
                 if stripped == b'.':
                     raw = b'\r\n'.join(self._ml_buffer) + b'\r\n'
-                    self.responses.append(POP3Response(
-                        self._ml_start + b' ' + raw))
+                    self.responses.append(POP3Response(raw))
                     self._in_multiline = False
                 self._buffer = self._buffer[idx:]
                 continue
@@ -158,8 +156,11 @@ class POP3(object):
             self.commands.append(POP3Command(line))
             self._buffer = self._buffer[idx:]
 
-        # Flush pending single-line response if no more data to determine
-        if self._pending and not self._in_multiline:
+        # Flush pending single-line response if buffer is empty and no more
+        # data lines could follow (i.e., we're not in multiline mode and the
+        # pending response is definitely single-line because no data lines
+        # followed it in this feed call)
+        if self._pending and not self._in_multiline and not self._buffer:
             self.responses.append(POP3Response(self._pending))
             self._pending = None
 
@@ -209,3 +210,10 @@ def test_pop3_roundtrip():
     data = bytes(rsp)
     assert b'line1' in data
     assert data.endswith(b'.\r\n')
+
+def test_pop3_feed_multiline_text():
+    """Feed-parsed multiline response text should not duplicate status."""
+    p = POP3()
+    p.feed(b'+OK 2 messages\r\n1 120\r\n.\r\n')
+    assert len(p.responses) == 1
+    assert p.responses[0].text == b'2 messages'  # NOT b'+OK 2 messages'
