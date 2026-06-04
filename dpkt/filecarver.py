@@ -37,7 +37,12 @@ class MIMEParser(object):
             header_end = part.find(b'\r\n\r\n')
             if header_end < 0: continue
             body = part[header_end+4:]
-            body = body.rstrip(b'\r\n').rstrip(b'--').rstrip(b'\r\n')
+            if body.endswith(b'--\r\n'):
+                body = body[:-4]
+            elif body.endswith(b'--'):
+                body = body[:-2]
+            elif body.endswith(b'\r\n'):
+                body = body[:-2]
             # Decode
             encoding = b'identity'
             enc_match = re.search(rb'Content-Transfer-Encoding:\s*(\S+)', part, re.IGNORECASE)
