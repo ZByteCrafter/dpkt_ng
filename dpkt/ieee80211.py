@@ -306,6 +306,7 @@ class IEEE80211(dpkt.Packet):
         self.data = field.data
 
     class BlockAckReq(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('dst', '6s', '\x00' * 6),
             ('src', '6s', '\x00' * 6),
@@ -374,22 +375,26 @@ class IEEE80211(dpkt.Packet):
             return (self.frag_seq & _SEQUENCE_NUMBER_MASK) >> _SEQUENCE_NUMBER_SHIFT
 
     class RTS(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('dst', '6s', '\x00' * 6),
             ('src', '6s', '\x00' * 6)
         )
 
     class CTS(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('dst', '6s', '\x00' * 6),
         )
 
     class ACK(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('dst', '6s', '\x00' * 6),
         )
 
     class CFEnd(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('dst', '6s', '\x00' * 6),
             ('src', '6s', '\x00' * 6),
@@ -413,6 +418,7 @@ class IEEE80211(dpkt.Packet):
         )
 
     class Disassoc(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('reason', 'H', 0),
         )
@@ -449,17 +455,20 @@ class IEEE80211(dpkt.Packet):
 
     # This obviously doesn't support any of AUTH frames that use encryption
     class Auth(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('algorithm', 'H', 0),
             ('auth_seq', 'H', 0),
         )
 
     class Deauth(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('reason', 'H', 0),
         )
 
     class Action(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('category', 'B', 0),
             ('code', 'B', 0),
@@ -487,6 +496,7 @@ class IEEE80211(dpkt.Packet):
             self.data = field.data
 
     class BlockAckActionRequest(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('dialog', 'B', 0),
             ('parameters', 'H', 0),
@@ -495,6 +505,7 @@ class IEEE80211(dpkt.Packet):
         )
 
     class BlockAckActionResponse(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('dialog', 'B', 0),
             ('status_code', 'H', 0),
@@ -548,6 +559,7 @@ class IEEE80211(dpkt.Packet):
         )
 
     class QoS_Data(dpkt.Packet):
+        __byte_order__ = '<'
         __hdr__ = (
             ('control', 'H', 0),
         )
@@ -786,7 +798,7 @@ def test_action_block_ack_request():
     assert ieee.action.category == BLOCK_ACK
     assert ieee.action.code == BLOCK_ACK_CODE_REQUEST
     assert ieee.action.block_ack_request.timeout == 0
-    parameters = struct.unpack('<H', b'\x10\x02')[0]
+    parameters = struct.unpack('<H', b'\x02\x10')[0]
     assert ieee.action.block_ack_request.parameters == parameters
 
 
@@ -798,9 +810,9 @@ def test_action_block_ack_response():
     assert ieee.subtype == M_ACTION
     assert ieee.action.category == BLOCK_ACK
     assert ieee.action.code == BLOCK_ACK_CODE_RESPONSE
-    timeout = struct.unpack('<H', b'\x13\x88')[0]
+    timeout = struct.unpack('<H', b'\x88\x13')[0]
     assert ieee.action.block_ack_response.timeout == timeout
-    parameters = struct.unpack('<H', b'\x10\x02')[0]
+    parameters = struct.unpack('<H', b'\x02\x10')[0]
     assert ieee.action.block_ack_response.parameters == parameters
 
 
