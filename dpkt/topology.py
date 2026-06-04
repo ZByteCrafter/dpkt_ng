@@ -107,14 +107,19 @@ class TopologyBuilder(object):
         if self._bgp_stream:
             for conn_id in list(self._bgp_stream.connections.keys()):
                 conn = self._bgp_stream[conn_id]
-                data = conn.c2s.get_data() or conn.s2c.get_data()
-                if data:
-                    try:
-                        from . import bgp as bgp_mod
-                        bgp_msg = bgp_mod.BGP(data)
-                        self._extract_bgp(conn_id, bgp_msg)
-                    except Exception:
-                        pass
+                for direction in (conn.c2s, conn.s2c):
+                    data = direction.get_data()
+                    while data and len(data) >= 19:
+                        try:
+                            from . import bgp as bgp_mod
+                            bgp_msg = bgp_mod.BGP(data)
+                            self._extract_bgp(conn_id, bgp_msg)
+                            if hasattr(bgp_msg, 'len') and bgp_msg.len > 0:
+                                data = data[bgp_msg.len:]
+                            else:
+                                data = data[len(bgp_msg):]
+                        except Exception:
+                            break
 
     def get_topology(self):
         return {'routers': list(self.routers.values()), 'links': self.links, 'prefixes': self.prefixes}
