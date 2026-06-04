@@ -247,6 +247,7 @@ class LSAv3Header(dpkt.Packet):
 
 class LSARouterV3(LSAv3Header):
     def __init__(self, *args, **kwargs):
+        self.opts = b'\x00' * 3
         self.links = []
         super(LSARouterV3, self).__init__(*args, **kwargs)
 
@@ -268,7 +269,7 @@ class LSARouterV3(LSAv3Header):
 
     def __bytes__(self):
         hdr = self.pack_hdr()
-        body = bytes([self.flags, 0, 0, 0])
+        body = bytes([self.flags]) + bytes(self.opts)
         for link in self.links:
             body += struct.pack('>BBHIII', link['type'], link['rsv'], link['metric'],
                                 link['interface_id'], link['neighbor_interface_id'],
@@ -699,17 +700,18 @@ class LSAASExternal(LSASummaryIP):
         else:
             self.forwarding = 0
             self.tag = 0
+        self.prefix = b''
         self.data = b''
 
     def __bytes__(self):
         hdr = self.pack_hdr()
-        body = struct.pack('>I', self.mask) + bytes([self.flags])
-        body += struct.pack('>I', self.metric << 8)[:3]
-        body += struct.pack('>II', self.forwarding, self.tag)
+        body = struct.pack('>I', self.mask) + bytes([self.flags]) + struct.pack('>I', self.metric)[1:]
+        body += self.prefix  # include variable-length prefix
+        body += struct.pack('>I', self.forwarding) + struct.pack('>I', self.tag)
         return hdr + body
 
     def __len__(self):
-        return self.__hdr_len__ + 16
+        return self.__hdr_len__ + 16 + len(self.prefix)
 
 
 # Register v2 LSA types
