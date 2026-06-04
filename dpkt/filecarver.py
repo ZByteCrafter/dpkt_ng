@@ -153,15 +153,15 @@ class FileCarver(object):
         except: pass
 
     def _carve_ftp(self, data_c2s, data_s2c, conn_id):
-        # Simple: extract filename from RETR/STOR in control channel
-        for direction, data in [('download', data_s2c), ('upload', data_c2s)]:
-            if data and len(data) > 10:
-                m = re.search(rb'(?:RETR|STOR)\s+(\S+)', data, re.IGNORECASE)
-                filename = m.group(1).decode('latin-1', errors='replace') if m else 'ftp_file'
-                f = ExtractedFile(filename, data, 'ftp')
-                f.direction = direction
-                self.files.append(f)
-                return
+        """Extract files from FTP data connections."""
+        # Parse control channel for PASV/PORT to identify data channels
+        # For now, extract from data channel (port 20 or passive)
+        if data_s2c:
+            # Data channel: server sends file data
+            fname = 'ftp_data_%s_%d.bin' % (conn_id[0], conn_id[1])
+            f = ExtractedFile(fname, data_s2c, 'ftp')
+            f.direction = 'download'
+            self.files.append(f)
 
     def _carve_smtp(self, data_c2s, data_s2c, conn_id):
         """Extract from SMTP: DATA command body -> full email -> MIME."""
