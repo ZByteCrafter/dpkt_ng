@@ -286,7 +286,7 @@ class SMB1WriteAndX(SMB1Command):
             self.andx_command = self._params[0]
             self._andx_rsv = self._params[1]
             self.andx_offset = struct.unpack('<H', self._params[2:4])[0]
-        if len(self._params) >= 28:
+        if len(self._params) >= 24:
             self.fid = struct.unpack('<H', self._params[4:6])[0]
             self.offset = struct.unpack('<I', self._params[6:10])[0]
             self.timeout = struct.unpack('<I', self._params[10:14])[0]
