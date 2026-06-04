@@ -84,7 +84,12 @@ class DirectionBuffer(object):
                     prev_seq, prev_ack, prev_data = merged[-1]
                     overlap_off = seg[0] - prev_seq
                     if overlap_off < len(prev_data):
-                        new_data = prev_data[:overlap_off] + seg[2]
+                        # Overlay new segment onto previous, preserving tail
+                        new_len = max(len(prev_data), overlap_off + len(seg[2]))
+                        new_data = bytearray(new_len)
+                        new_data[:len(prev_data)] = prev_data
+                        new_data[overlap_off:overlap_off + len(seg[2])] = seg[2]
+                        new_data = bytes(new_data)
                     else:
                         gap = overlap_off - len(prev_data)
                         new_data = prev_data + b'\x00' * gap + seg[2]
@@ -396,6 +401,31 @@ def test_direction_buffer_fin_with_gap():
     assert not buf.is_complete  # gap 0-4
     buf.feed(seq=1, ack=0, payload=b'HELLO', flags=tcp_mod.TH_ACK)
     assert buf.is_complete  # now all bytes received
+
+
+def test_direction_buffer_overlap_preserves_tail():
+    """Overlapping merge preserves non-overlapping tail of previous segment."""
+    buf = DirectionBuffer()
+    buf.feed(seq=0, ack=0, payload=b'', flags=tcp_mod.TH_SYN)
+    # Two out-of-order segments that overlap:
+    # Segment A: ABCDEFGH at seq=1 (out-of-order, gap at seq=1 relative to next_seq=1... no)
+    # Use seq values relative to isn=0: next_seq starts at 1 after SYN
+    # Feed out-of-order: seq=3 (gap at 1-2), so it's buffered
+    buf.feed(seq=3, ack=0, payload=b'CDEFGH', flags=tcp_mod.TH_ACK)
+    assert len(buf.segments) == 1  # buffered as out-of-order
+    # Feed another out-of-order that overlaps: seq=7, payload='XY12' overlaps EFGH at offset 4
+    # prev: rel_seq=3, data='CDEFGH' (len=6), seg: rel_seq=7
+    # overlap_off = 7-3 = 4, which is < len('CDEFGH')=6, so overlap case
+    # New data should be: CDEFGH[:4] + XY12 = 'CDEFXY12', preserving nothing after...
+    # Actually that drops GH. With fix: overlay XY12 at offset 4 → CDEFXY12 (8 bytes)
+    # GH is at offsets 4-5, overwritten by XY. So tail is gone here.
+    # Better test: overlap_off < len(prev), and seg is shorter than remaining tail
+    # Feed seq=5, payload='XY' (2 bytes): overlap_off = 5-3 = 2 < 6
+    # prev_data = 'CDEFGH', overlay at offset 2: CDEFGH[0:2] + XY + CDEFGH[4:] = CDXYGH
+    buf.feed(seq=5, ack=0, payload=b'XY', flags=tcp_mod.TH_ACK)
+    # Merged: CDXYGH (tail GH preserved)
+    assert len(buf.segments) == 1
+    assert buf.segments[0][2] == b'CDXYGH'
 
 
 def test_direction_buffer_flush():
