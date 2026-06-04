@@ -100,9 +100,9 @@ class GTPFTEIDIE(GTPIE):
         GTPIE.unpack(self, buf)
         if len(self.value) >= 9:
             flags = compat_ord(self.value[0])
-            self.iface = flags & 0x1f
-            self.v4 = (flags >> 5) & 1
-            self.v6 = (flags >> 6) & 1
+            self.iface = flags & 0x0f    # 4 bits (Interface Type)
+            self.v4 = (flags >> 4) & 1   # bit 4
+            self.v6 = (flags >> 5) & 1   # bit 5
             self.teid = struct.unpack('>I', self.value[1:5])[0]
             pos = 5
             v4_addr_len = 4 if self.v4 else 0
