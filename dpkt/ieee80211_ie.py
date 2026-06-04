@@ -130,8 +130,8 @@ class IEEE80211IEHEBSSColorChange(IEEE80211IE):
         super().unpack(buf)
         if len(self.info) >= 3:
             self.ext_id = self.info[0]
-            self.new_color = self.info[1]
-            self.countdown = self.info[2]
+            self.countdown = self.info[1]
+            self.new_color = self.info[2]
 
 
 class IEEE80211IEHETWT(IEEE80211IE):
@@ -475,8 +475,8 @@ def test_bss_color_change_ie():
     info = bytes([HE_EXT_BSS_COLOR]) + bytes([10]) + bytes([5])
     buf = bytes([255, len(info)]) + info
     ie = IEEE80211IEHEBSSColorChange(buf)
-    assert ie.new_color == 10
-    assert ie.countdown == 5
+    assert ie.countdown == 10
+    assert ie.new_color == 5
 
 
 def test_extension_tag_unpack():
