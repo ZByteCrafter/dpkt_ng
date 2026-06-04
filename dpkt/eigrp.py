@@ -179,8 +179,8 @@ class EIGRPExternalRouteTLV(EIGRPInternalRouteTLV):
         value += struct.pack('>I', self.mtu << 8)[:3]
         value += bytes([self.hop_count, self.reliability, self.load, 0, 0, self.prefix_length])
         value += self.prefix.ljust(prefix_bytes, b'\x00')[:prefix_bytes]
-        value += struct.pack('>IIIBB2s', self.origin_router, self.origin_as,
-                            self.tag, self.ext_proto, self.ext_flags, b'\x00'*2)
+        value += struct.pack('>IIIBB', self.origin_router, self.origin_as,
+                            self.tag, self.ext_proto, self.ext_flags)
         for m in self.metrics: value += bytes(m)
         self.length = 4 + len(value)
         return struct.pack('>HH', EIGRP_TLV_EXTERNAL_ROUTE, self.length) + value
