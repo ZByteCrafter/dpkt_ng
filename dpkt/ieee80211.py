@@ -173,7 +173,7 @@ class IEEE80211(dpkt.Packet):
         }
 
         # each IE starts with an ID and a length
-        while len(buf) > FCS_LENGTH:
+        while len(buf) >= 2:
             ie_id = struct.unpack('B', buf[:1])[0]
             try:
                 parser = ie_decoder[ie_id][1]
