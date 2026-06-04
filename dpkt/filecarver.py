@@ -153,7 +153,9 @@ class FileCarver(object):
             if header_end < 0: return
             body = data[header_end+4:]
             if not body: return
-            first_line = data[:data.find(b'\r\n')].decode()
+            crlf_idx = data.find(b'\r\n')
+            if crlf_idx < 0: return
+            first_line = data[:crlf_idx].decode('latin-1', errors='replace')
             parts = first_line.split(' ')
             if len(parts) < 2: return
             url = parts[1]
