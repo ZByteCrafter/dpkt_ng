@@ -491,10 +491,12 @@ class SMB2QueryDirectory(dpkt.Packet):
         off = self.__hdr_len__
         self.file_name_offset, self.file_name_length = struct.unpack('<HH', buf[off:off + 4]); off += 4
         self.output_offset, self.output_length = struct.unpack('<II', buf[off:off + 8])
-        fn_start = self.file_name_offset - 64 if self.file_name_offset >= 64 else 0
-        out_start = self.output_offset - 64 if self.output_offset >= 64 else 0
-        if self.file_name_length:
+        if self.file_name_offset >= 64 and self.file_name_length:
+            fn_start = self.file_name_offset - 64
             self.file_name = buf[fn_start:fn_start + self.file_name_length]
+        else:
+            self.file_name = b''
+        out_start = self.output_offset - 64 if self.output_offset >= 64 else 0
         if self.output_length:
             self.output_data = buf[out_start:out_start + self.output_length]
         self.data = b''
