@@ -362,7 +362,7 @@ class IEEE80211(dpkt.Packet):
                 self.bmp = struct.unpack('8s', self.data[0:_COMPRESSED_BMP_LENGTH])[0]
             else:
                 self.bmp = struct.unpack('128s', self.data[0:_BMP_LENGTH])[0]
-            self.data = self.data[len(self.__hdr__) + len(self.bmp):]
+            self.data = self.data[len(self.bmp):]
 
     class _FragmentNumSeqNumMixin(object):
         @property
