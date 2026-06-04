@@ -143,12 +143,12 @@ class Connection(object):
     def is_closed(self):
         return self.c2s.is_complete and self.s2c.is_complete
 
-    def feed(self, ip, tcp):
-        """Feed a parsed IP+TCP packet to the correct direction."""
-        if tcp.sport == self.src_port:
-            self.c2s.feed(tcp.seq, tcp.ack, tcp.data, tcp.flags)
+    def feed(self, src_ip, sport, seq, ack, data, flags):
+        """Feed packet data to the correct direction."""
+        if src_ip == self.src_ip and sport == self.src_port:
+            self.c2s.feed(seq, ack, data, flags)
         else:
-            self.s2c.feed(tcp.seq, tcp.ack, tcp.data, tcp.flags)
+            self.s2c.feed(seq, ack, data, flags)
 
     def merged_data(self, fill_gaps=False):
         """Return a single byte sequence with both directions ordered by seq/ack causality."""
@@ -214,8 +214,14 @@ class StreamReassembler(object):
 
     def feed(self, ip, tcp_pkt):
         """Feed one parsed IP+TCP packet."""
-        conn_id = (socket.inet_ntoa(ip.src), tcp_pkt.sport,
-                   socket.inet_ntoa(ip.dst), tcp_pkt.dport)
+        src_ip = socket.inet_ntoa(ip.src)
+        dst_ip = socket.inet_ntoa(ip.dst)
+        a = (src_ip, tcp_pkt.sport)
+        b = (dst_ip, tcp_pkt.dport)
+        if a <= b:
+            conn_id = a + b
+        else:
+            conn_id = b + a
         if conn_id not in self.connections:
             if len(self.connections) >= self.max_connections:
                 self._evict_one()
@@ -223,7 +229,11 @@ class StreamReassembler(object):
                 src_ip=conn_id[0], src_port=conn_id[1],
                 dst_ip=conn_id[2], dst_port=conn_id[3])
         conn = self.connections[conn_id]
-        conn.feed(ip, tcp_pkt)
+        # Determine direction based on actual packet source
+        if src_ip == conn.src_ip and tcp_pkt.sport == conn.src_port:
+            conn.c2s.feed(tcp_pkt.seq, tcp_pkt.ack, tcp_pkt.data, tcp_pkt.flags)
+        else:
+            conn.s2c.feed(tcp_pkt.seq, tcp_pkt.ack, tcp_pkt.data, tcp_pkt.flags)
         if self.output_mode == 'separate':
             data_c2s = conn.c2s.get_data(fill_gaps=self.fill_gaps)
             data_s2c = conn.s2c.get_data(fill_gaps=self.fill_gaps)
@@ -287,6 +297,12 @@ class StreamReassembler(object):
             del self.connections[worst[0]]
 
     def find(self, src=None, sport=None, dst=None, dport=None):
+        if src is not None and sport is not None and dst is not None and dport is not None:
+            # Exact match: normalize key for lookup
+            a = (src, sport)
+            b = (dst, dport)
+            conn_id = a + b if a <= b else b + a
+            return self.connections.get(conn_id)
         for cid, conn in self.connections.items():
             if (src is None or cid[0] == src) and \
                (sport is None or cid[1] == sport) and \
@@ -437,6 +453,23 @@ def test_connection_properties():
     assert not conn.is_closed
 
 
+def test_stream_reassembler_bidirectional():
+    """Both directions of same connection map to same Connection."""
+    reasm = StreamReassembler()
+    # SYN from client
+    ip1 = ip_mod.IP(src=b'\x0a\x00\x00\x01', dst=b'\x0a\x00\x00\x02', p=6)
+    tcp1 = tcp_mod.TCP(sport=12345, dport=80, seq=0, flags=tcp_mod.TH_SYN, data=b'')
+    reasm.feed(ip1, tcp1)
+    # SYN-ACK from server (reversed direction)
+    ip2 = ip_mod.IP(src=b'\x0a\x00\x00\x02', dst=b'\x0a\x00\x00\x01', p=6)
+    tcp2 = tcp_mod.TCP(sport=80, dport=12345, seq=5000, flags=tcp_mod.TH_SYN | tcp_mod.TH_ACK, data=b'')
+    reasm.feed(ip2, tcp2)
+    assert len(reasm.connections) == 1  # NOT 2
+    conn = list(reasm.connections.values())[0]
+    assert conn.c2s.syn_received
+    assert conn.s2c.syn_received
+
+
 def test_stream_reassembler_feed():
     reasm = StreamReassembler(max_connections=100, max_buffer_per_dir=1024*1024)
     ip = ip_mod.IP(src=b'\x0a\x00\x00\x01', dst=b'\x0a\x00\x00\x02', p=6)
@@ -444,7 +477,11 @@ def test_stream_reassembler_feed():
     ip.data = tcp_pkt
     reasm.feed(ip, tcp_pkt)
     conn_id = ('10.0.0.1', 12345, '10.0.0.2', 445)
-    assert conn_id in reasm.connections
+    # conn_id is normalized: smaller (ip,port) pair first
+    a = ('10.0.0.1', 12345)
+    b = ('10.0.0.2', 445)
+    normalized = a + b if a <= b else b + a
+    assert normalized in reasm.connections
     conn = reasm[conn_id]
     assert conn.c2s.syn_received
 
