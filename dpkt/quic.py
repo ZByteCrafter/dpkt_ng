@@ -114,6 +114,7 @@ class QUICAckFrame(QUICFrame):
         self.largest_ack, n = decode_varint(buf, off); off += n
         self.ack_delay, n = decode_varint(buf, off); off += n
         self.block_count, n = decode_varint(buf, off); off += n
+        self.first_ack_range, n = decode_varint(buf, off); off += n
         self.blocks = []
         for _ in range(self.block_count):
             gap, n = decode_varint(buf, off); off += n
@@ -330,3 +331,11 @@ def test_quic_decrypt():
     dec = pkt.decrypt()
     assert dec.pkt_number == 0
     assert len(dec.frames) >= 1
+
+def test_quic_ack_frame():
+    """ACK frame with first_ack_range."""
+    buf = bytes([FRAME_ACK]) + encode_varint(10) + encode_varint(0) + encode_varint(0) + encode_varint(5)
+    f = QUICAckFrame(buf)
+    assert f.largest_ack == 10
+    assert f.first_ack_range == 5
+    assert f.block_count == 0
