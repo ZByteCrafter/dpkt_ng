@@ -39,7 +39,7 @@ class VXLAN(dpkt.Packet):
         self.data = buf[8:]
 
     def __bytes__(self):
-        vni_bytes = struct.pack('>I', self.vni)[1:]  # 24-bit, drop MSB
+        vni_bytes = struct.pack('>I', self.vni & 0xFFFFFF)[1:]  # 24-bit, drop MSB
         header = bytes([self.flags]) + b'\x00' * 3 + vni_bytes + b'\x00'
         return header + bytes(self.data)
 
