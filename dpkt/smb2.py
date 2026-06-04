@@ -140,8 +140,11 @@ class SMB2TreeConnect(dpkt.Packet):
 
     def unpack(self, buf):
         dpkt.Packet.unpack(self, buf)
-        start = self.path_offset - SMB2_HDR_SIZE
-        self.path = buf[start:start + self.path_length]
+        if self.path_offset >= SMB2_HDR_SIZE and self.path_length:
+            start = self.path_offset - SMB2_HDR_SIZE
+            self.path = buf[start:start + self.path_length]
+        else:
+            self.path = b''
         self.data = b''
 
 
@@ -168,8 +171,11 @@ class SMB2Create(dpkt.Packet):
 
     def unpack(self, buf):
         dpkt.Packet.unpack(self, buf)
-        start = self.name_offset - SMB2_HDR_SIZE
-        self.file_name = buf[start:start + self.name_length]
+        if self.name_offset >= SMB2_HDR_SIZE and self.name_length:
+            start = self.name_offset - SMB2_HDR_SIZE
+            self.file_name = buf[start:start + self.name_length]
+        else:
+            self.file_name = b''
         self.data = b''
 
 
@@ -208,8 +214,11 @@ class SMB2Read(dpkt.Packet):
         self._rsv = buf[3]
         self.data_length, self.data_remaining = struct.unpack('<II', buf[4:12])
         self._rsv2 = buf[12:16]
-        start = self.data_offset - SMB2_HDR_SIZE
-        self.file_data = buf[start:start + self.data_length]
+        if self.data_offset >= SMB2_HDR_SIZE and self.data_length:
+            start = self.data_offset - SMB2_HDR_SIZE
+            self.file_data = buf[start:start + self.data_length]
+        else:
+            self.file_data = b''
         self.data = b''
 
     def _unpack_request(self, buf):
@@ -283,8 +292,11 @@ class SMB2Write(dpkt.Packet):
         self.channel_info_offset = struct.unpack('<H', buf[40:42])[0]
         self.channel_info_length = struct.unpack('<H', buf[42:44])[0]
         self.write_flags = struct.unpack('<I', buf[44:48])[0] if len(buf) >= 48 else 0
-        start = self.data_offset - SMB2_HDR_SIZE
-        self.file_data = buf[start:start + self.length]
+        if self.data_offset >= SMB2_HDR_SIZE and self.length:
+            start = self.data_offset - SMB2_HDR_SIZE
+            self.file_data = buf[start:start + self.length]
+        else:
+            self.file_data = b''
         self.data = b''
 
     def _unpack_response(self, buf):
@@ -416,12 +428,16 @@ class SMB2Ioctl(dpkt.Packet):
         off += 8
         self.flags = struct.unpack('<I', buf[off:off + 4])[0]
         self._rsv2 = buf[off + 4:off + 8]
-        in_start = self.in_offset - SMB2_HDR_SIZE if self.in_offset >= SMB2_HDR_SIZE else self.in_offset
-        out_start = self.out_offset - SMB2_HDR_SIZE if self.out_offset >= SMB2_HDR_SIZE else self.out_offset
-        if self.in_length:
+        if self.in_offset >= SMB2_HDR_SIZE and self.in_length:
+            in_start = self.in_offset - SMB2_HDR_SIZE
             self.in_data = buf[in_start:in_start + self.in_length]
-        if self.out_length:
+        else:
+            self.in_data = b''
+        if self.out_offset >= SMB2_HDR_SIZE and self.out_length:
+            out_start = self.out_offset - SMB2_HDR_SIZE
             self.out_data = buf[out_start:out_start + self.out_length]
+        else:
+            self.out_data = b''
         self.data = b''
 
     def __bytes__(self):
@@ -540,9 +556,11 @@ class SMB2QueryInfo(dpkt.Packet):
         self.additional_info = struct.unpack('<I', buf[off:off + 4])[0]; off += 4
         self.flags = struct.unpack('<I', buf[off:off + 4])[0]; off += 4
         self.file_id = buf[off:off + 16]
-        in_start = self.input_buffer_offset - SMB2_HDR_SIZE if self.input_buffer_offset >= SMB2_HDR_SIZE else 0
-        if self.input_buffer_length:
+        if self.input_buffer_offset >= SMB2_HDR_SIZE and self.input_buffer_length:
+            in_start = self.input_buffer_offset - SMB2_HDR_SIZE
             self.input_data = buf[in_start:in_start + self.input_buffer_length]
+        else:
+            self.input_data = b''
         self.data = b''
 
     def __bytes__(self):
@@ -581,9 +599,11 @@ class SMB2SetInfo(dpkt.Packet):
         self.additional_info = struct.unpack('<I', buf[off:off + 4])[0]; off += 4
         self.file_id = buf[off:off + 16]; off += 16
         self._rsv2 = struct.unpack('<I', buf[off:off + 4])[0] if len(buf) >= off + 4 else 0
-        buf_start = self.buffer_offset - SMB2_HDR_SIZE if self.buffer_offset >= SMB2_HDR_SIZE else 0
-        if self.buffer_length:
+        if self.buffer_offset >= SMB2_HDR_SIZE and self.buffer_length:
+            buf_start = self.buffer_offset - SMB2_HDR_SIZE
             self.buffer_data = buf[buf_start:buf_start + self.buffer_length]
+        else:
+            self.buffer_data = b''
         self.data = b''
 
     def __bytes__(self):
