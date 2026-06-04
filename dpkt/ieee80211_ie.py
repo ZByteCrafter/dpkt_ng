@@ -97,10 +97,10 @@ class IEEE80211IEHECapability(IEEE80211IE):
         super().unpack(buf)
         if len(self.info) >= 1:
             self.ext_id = self.info[0]
-        if len(self.info) >= 6:
-            self.mac_info = self.info[1:6]
-        if len(self.info) >= 17:
-            self.phy_info = self.info[6:17]
+        if len(self.info) >= 7:
+            self.mac_info = self.info[1:7]
+        if len(self.info) >= 18:
+            self.phy_info = self.info[7:18]
 
 
 class IEEE80211IEHEOperation(IEEE80211IE):
@@ -452,12 +452,15 @@ def test_wmm_ie():
 
 
 def test_he_cap_ie():
-    """HE Capabilities via extension tag."""
-    info = bytes([HE_EXT_CAP]) + b'\x00' * 5 + b'\x00' * 11
+    """HE Capabilities with correct field sizes."""
+    # ext_id(1) + mac_cap(6) + phy_cap(11) = 18 bytes
+    info = bytes([HE_EXT_CAP]) + b'\x00' * 6 + b'\x00' * 11
     buf = bytes([255, len(info)]) + info
     ie = IEEE80211IEHECapability(buf)
     assert ie.id == 255
     assert ie.ext_id == HE_EXT_CAP
+    assert len(ie.mac_info) == 6
+    assert len(ie.phy_info) == 11
 
 
 def test_he_op_ie():
