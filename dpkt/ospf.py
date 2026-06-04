@@ -403,9 +403,12 @@ class LSALink(LSAv3Header):
         self.data = b''
 
     def __bytes__(self):
-        hdr = self.pack_hdr()
         body = bytes([self.router_priority]) + self.opts
         body += bytes([self.prefix_length]) + self.prefix
+        orig_len = self.len
+        self.len = self.__hdr_len__ + len(body)
+        hdr = self.pack_hdr()
+        self.len = orig_len
         return hdr + body
 
     def __len__(self):
@@ -438,11 +441,14 @@ class LSAIntraAreaPrefix(LSAv3Header):
         self.data = b''
 
     def __bytes__(self):
-        hdr = self.pack_hdr()
         body = struct.pack('>HHII', len(self.prefixes), self.ref_type,
                            self.ref_id, self.ref_adv_router)
         for p in self.prefixes:
             body += bytes([p['prefix_length']]) + p['prefix']
+        orig_len = self.len
+        self.len = self.__hdr_len__ + len(body)
+        hdr = self.pack_hdr()
+        self.len = orig_len
         return hdr + body
 
     def __len__(self):
