@@ -212,9 +212,11 @@ class QUIC(dpkt.Packet):
                 is_long = buf[0] & 0x80
                 if is_long:
                     inst = super().__new__(QUICLongHeader)
+                    inst.unpack(buf)
                 else:
                     inst = super().__new__(QUICShortHeader)
-                inst.unpack(buf)
+                    dcid_len = kwargs.get('dcid_len', 0)
+                    inst.unpack(buf, dcid_len=dcid_len)
                 return inst
         return super().__new__(cls)
 
@@ -272,11 +274,14 @@ class QUICLongHeader(dpkt.Packet):
 
 
 class QUICShortHeader(dpkt.Packet):
-    def unpack(self, buf):
+    def unpack(self, buf, dcid_len=0):
         self.flags = buf[0]
-        self.dcid = buf[1:21]  # up to 20 bytes
-        self.pkt_number = buf[21:25]  # partially encrypted
-        self.frames = parse_frames(buf[25:]) if len(buf) > 25 else []
+        self.dcid = buf[1:1 + dcid_len]
+        pn_offset = 1 + dcid_len
+        pn_len = (self.flags & 3) + 1  # PN length from lower 2 bits
+        self.pkt_number = buf[pn_offset:pn_offset + pn_len]
+        payload_offset = pn_offset + pn_len
+        self.frames = parse_frames(buf[payload_offset:]) if payload_offset < len(buf) else []
         self.data = b''
 
 
@@ -415,3 +420,13 @@ def test_quic_retry_packet():
     assert pkt.retry_token == token
     assert pkt.retry_integrity_tag == tag
     assert pkt.frames == []
+
+def test_quic_short_header():
+    """QUIC Short Header with dcid_len parameter."""
+    dcid = b'\x01' * 8
+    # flags=0x40 (short header, PN length = 1 byte), PN=0x01, payload=PING
+    buf = bytes([0x40]) + dcid + bytes([FRAME_PING])
+    pkt = QUIC(buf, dcid_len=8)
+    assert isinstance(pkt, QUICShortHeader)
+    assert pkt.dcid == dcid
+    assert len(pkt.pkt_number) == 1
