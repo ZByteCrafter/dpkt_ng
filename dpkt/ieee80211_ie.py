@@ -253,8 +253,8 @@ class IEEE80211IEVHTOperation(IEEE80211IE):
         if len(self.info) >= 5:
             self.ch_width = self.info[0]
             self.ch1 = self.info[1]
-            self.ch2 = struct.unpack('<H', self.info[2:4])[0]
-            self.basic_mcs = struct.unpack('<H', self.info[4:6])[0]
+            self.ch2 = self.info[2]
+            self.basic_mcs = struct.unpack('<H', self.info[3:5])[0]
 
 
 class IEEE80211IEERP(IEEE80211IE):
