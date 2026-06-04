@@ -71,7 +71,7 @@ class SMTPResponse(object):
         exts = []
         for line in self.lines:
             part = line.split(b' ', 1)[0].strip() if line else b''
-            if part and part.isalpha():
+            if part and all(chr(c).isalnum() or chr(c) in '-_' for c in part):
                 exts.append(part.upper())
         return exts
 
