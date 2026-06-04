@@ -232,7 +232,7 @@ def parse_avps(buf):
 class L2TP(dpkt.Packet):
     __byte_order__ = '>'
     __hdr__ = (
-        ('_flags', 'H', 0x0002),       # T(1)+L(1)+rsvd(2)+S(1)+rsvd(1)+ver(4)+rsvd(6)
+        ('_flags', 'H', 0x0002),       # T(1)+L(1)+rsvd(2)+S(1)+rsvd(1)+O(1)+P(1)+rsvd(4)+Ver(4)
         ('_length', 'H', 0),
         ('tunnel_id', 'H', 0),
         ('session_id', 'H', 0),
@@ -244,8 +244,10 @@ class L2TP(dpkt.Packet):
             ('_rsv1', 2),
             ('s', 1),
             ('_rsv2', 1),
+            ('o', 1),
+            ('p', 1),
+            ('_rsv3', 4),
             ('ver', 4),
-            ('_rsv3', 6),
         ),
     }
     _msg_sw = {}
@@ -369,7 +371,7 @@ L2TP._msg_sw.update({
 # ---- Tests ----
 def test_l2tp_header():
     # T=1,L=1,S=1,ver=2,len=20,tid=1,sid=0  + Ns=0,Nr=0 + MsgType AVP (SCCRQ)
-    buf = struct.pack('>HHHH', 0xC882, 20, 1, 0) + struct.pack('>HH', 0, 0) + struct.pack('>HHHH', 0x8008, 0, 0, 1)
+    buf = struct.pack('>HHHH', 0xC802, 20, 1, 0) + struct.pack('>HH', 0, 0) + struct.pack('>HHHH', 0x8008, 0, 0, 1)
     pkt = L2TP(buf)
     assert pkt.is_control
     assert pkt.version == 2
