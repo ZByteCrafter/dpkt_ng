@@ -188,7 +188,7 @@ class TopologyBuilder(object):
                         net = _inet_to_str(pfx['prefix'])
                         mask_int = struct.unpack('>I', pfx['mask'])[0]
                         mask_bits = bin(mask_int).count('1')
-                        self.prefixes.append(Prefix(net, mask_bits, sys_id, pfx['metric'], 'isis', 'internal'))
+                        self.prefixes.append(Prefix(net, mask_bits, sys_id, pfx['default_metric'], 'isis', 'internal'))
 
     def _feed_bgp_tcp(self, ip, tcp_pkt):
         """Feed BGP TCP stream to reassembler."""

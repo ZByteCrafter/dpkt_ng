@@ -167,7 +167,7 @@ class ISISEISReachTLV(ISISTLV):
 
 class ISISIPIntReachTLV(ISISTLV):
     def unpack(self, buf):
-        super().unpack(buf); self.entries = []; off = 0
+        super().unpack(buf); self.prefixes = []; off = 0
         while off + 12 <= len(self.value):
             default_metric = self.value[off]
             delay_metric = self.value[off+1]
@@ -175,8 +175,11 @@ class ISISIPIntReachTLV(ISISTLV):
             error_metric = self.value[off+3]
             prefix = self.value[off+4:off+8]
             mask = self.value[off+8:off+12]
-            self.entries.append({
-                'metric': default_metric,
+            self.prefixes.append({
+                'default_metric': default_metric,
+                'delay_metric': delay_metric,
+                'expense_metric': expense_metric,
+                'error_metric': error_metric,
                 'prefix': prefix,
                 'mask': mask,
             })
@@ -223,5 +226,8 @@ def test_isis_lsp():
 def test_isis_ip_reach():
     tlv = ISISIPIntReachTLV(bytes([TLV_IP_INT_REACH, 12]) +
         bytes([10, 0, 0, 0]) + b'\x0a\x00\x00\x00' + b'\xff\xff\xff\x00')
-    assert len(tlv.entries) == 1
-    assert tlv.entries[0]['metric'] == 10
+    assert len(tlv.prefixes) == 1
+    assert tlv.prefixes[0]['default_metric'] == 10
+    assert tlv.prefixes[0]['delay_metric'] == 0
+    assert tlv.prefixes[0]['expense_metric'] == 0
+    assert tlv.prefixes[0]['error_metric'] == 0
