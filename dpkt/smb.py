@@ -24,7 +24,7 @@ SMB_FLAGS2_SECURITY_SIGNATURES = 0x0004
 SMB_FLAGS2_COMPRESSED = 0x0008
 SMB_FLAGS2_SECURITY_SIGNATURES_REQUIRED = 0x0010
 SMB_FLAGS2_IS_LONG_NAME = 0x0040
-SMB_FLAGS2_REVERSE_PATH = 0x0400
+SMB_FLAGS2_REPARSE_PATH = 0x0400
 SMB_FLAGS2_EXTENDED_SECURITY = 0x0800
 SMB_FLAGS2_DFS = 0x1000
 SMB_FLAGS2_PAGING_IO = 0x2000
@@ -50,7 +50,7 @@ SMB_CMD_TREE_CONNECT_ANDX = 0x75
 SMB_CMD_NT_TRANS = 0xA0
 SMB_CMD_NT_TRANS_SECONDARY = 0xA1
 SMB_CMD_NT_CREATE_ANDX = 0xA2
-SMB_CMD_OPEN = 0xC0
+SMB_CMD_OPEN = 0x02
 
 
 class SMB(dpkt.Packet):
@@ -286,7 +286,7 @@ class SMB1WriteAndX(SMB1Command):
             self.andx_command = self._params[0]
             self._andx_rsv = self._params[1]
             self.andx_offset = struct.unpack('<H', self._params[2:4])[0]
-        if len(self._params) >= 28:
+        if len(self._params) >= 24:
             self.fid = struct.unpack('<H', self._params[4:6])[0]
             self.offset = struct.unpack('<I', self._params[6:10])[0]
             self.timeout = struct.unpack('<I', self._params[10:14])[0]

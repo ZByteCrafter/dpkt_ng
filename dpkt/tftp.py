@@ -17,11 +17,11 @@ OP_ERR = 5  # error code
 OP_OACK = 6  # option acknowledgment
 
 # RFC 2347 option names
-TFTP_OPT_BLKSIZE = 'blksize'
-TFTP_OPT_TSIZE = 'tsize'
-TFTP_OPT_TIMEOUT = 'timeout'
-TFTP_OPT_MULTICAST = 'multicast'
-TFTP_OPT_WINDOWSIZE = 'windowsize'
+TFTP_OPT_BLKSIZE = b'blksize'
+TFTP_OPT_TSIZE = b'tsize'
+TFTP_OPT_TIMEOUT = b'timeout'
+TFTP_OPT_MULTICAST = b'multicast'
+TFTP_OPT_WINDOWSIZE = b'windowsize'
 
 # Error codes
 EUNDEF = 0  # not defined
