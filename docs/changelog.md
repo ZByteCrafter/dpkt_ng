@@ -4,6 +4,9 @@
 
 ### ⚠️ Breaking Changes
 - **SMB**: `SMB_CMD_OPEN` constant changed from `0xC0` to `0x02` to match MS-CIFS specification (`SMB_COM_OPEN`). If your code depended on the old value `0xC0` (`SMB_COM_OPEN_PRINT_FILE`), update accordingly.
+- **stream**: `Connection.feed()` signature changed from `feed(self, ip, tcp)` to `feed(self, src_ip, sport, seq, ack, data, flags)` to support normalized connection keying. Update any direct callers.
+- **stream**: `StreamReassembler.feed()` connection keys are now normalized (lexicographic sort) instead of directional. If you stored or compared connection IDs, update accordingly.
+- **isis**: `ISISIPIntReachTLV` dictionary key `'metric'` renamed to `'default_metric'`; three additional keys `'delay_metric'`, `'expense_metric'`, `'error_metric'` now included per RFC 1195.
 
 ### Protocol Fixes
 - **SMB**: Fixed `SMB_FLAGS2_IS_LONG_NAME` (0x0040→0x0100) and `SMB_FLAGS2_REPARSE_PATH` (0x0400→0x0040) per MS-CIFS §2.2.3.1
