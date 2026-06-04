@@ -197,18 +197,26 @@ class Connection(object):
         items.sort(key=sort_key)
 
         # Build merged output
+        # Note: c2s and s2c have independent sequence spaces, so gap
+        # detection only applies within each direction.
         result = bytearray()
-        pos = 0
+        # Track expected next position per direction; None means first segment
+        pos_by_dir = {'c2s': None, 's2c': None}
         for direction, rel_seq, ack, data in items:
-            if fill_gaps and rel_seq > pos:
-                result.extend(b'\x00' * (rel_seq - pos))
-            if not fill_gaps:
-                result.extend(data)
-            else:
+            pos = pos_by_dir[direction]
+            if pos is not None and rel_seq > pos:
+                # Gap detected in this direction
+                if fill_gaps:
+                    result.extend(b'\x00' * (rel_seq - pos))
+                else:
+                    continue  # skip non-contiguous segment
+            if pos is not None:
                 overlap = max(0, pos - rel_seq)
                 if overlap < len(data):
                     result.extend(data[overlap:])
-            pos = max(pos, rel_seq + len(data))
+            else:
+                result.extend(data)
+            pos_by_dir[direction] = max(pos or 0, rel_seq + len(data))
 
         # Clear both buffers after merge
         self.c2s.contiguous = bytearray()
