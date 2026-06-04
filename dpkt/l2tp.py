@@ -232,7 +232,7 @@ def parse_avps(buf):
 class L2TP(dpkt.Packet):
     __byte_order__ = '>'
     __hdr__ = (
-        ('_flags', 'H', 0x0002),       # T(1)+L(1)+rsvd(2)+S(1)+rsvd(1)+ver(4)+rsvd(6)
+        ('_flags', 'H', 0x0002),       # T(1)+L(1)+rsvd(2)+S(1)+rsvd(1)+O(1)+P(1)+rsvd(4)+Ver(4)
         ('_length', 'H', 0),
         ('tunnel_id', 'H', 0),
         ('session_id', 'H', 0),
@@ -244,8 +244,10 @@ class L2TP(dpkt.Packet):
             ('_rsv1', 2),
             ('s', 1),
             ('_rsv2', 1),
+            ('o', 1),
+            ('p', 1),
+            ('_rsv3', 4),
             ('ver', 4),
-            ('_rsv3', 6),
         ),
     }
     _msg_sw = {}
