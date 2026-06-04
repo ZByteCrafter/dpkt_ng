@@ -1,21 +1,13 @@
 # -*- coding: utf-8 -*-
 """HTTP/3 frame parsing (RFC 9114). Transport-independent."""
 from __future__ import absolute_import, print_function
-import struct
 from . import dpkt
+from .quic import decode_varint, encode_varint
 
 # Frame types
 HTTP3_DATA = 0x00; HTTP3_HEADERS = 0x01; HTTP3_CANCEL_PUSH = 0x03
 HTTP3_SETTINGS = 0x04; HTTP3_PUSH_PROMISE = 0x05; HTTP3_GOAWAY = 0x07
 HTTP3_MAX_PUSH_ID = 0x0d
-
-# ---- Variable-Length Integer (self-contained) ----
-def _decode_varint(buf, offset=0):
-    b = buf[offset]; tag = b >> 6
-    if tag == 0: return (b & 0x3f, 1)
-    elif tag == 1: return (struct.unpack('>H', buf[offset:offset+2])[0] & 0x3fff, 2)
-    elif tag == 2: return (struct.unpack('>I', buf[offset:offset+4])[0] & 0x3fffffff, 4)
-    else: return (struct.unpack('>Q', buf[offset:offset+8])[0] & 0x3fffffffffffffff, 8)
 
 # ---- Frame Base ----
 class Http3Frame(object):
@@ -23,8 +15,8 @@ class Http3Frame(object):
         self.type = 0; self.length = 0
         if buf: self.unpack(buf)
     def unpack(self, buf):
-        self.type, n = _decode_varint(buf, 0)
-        self.length, m = _decode_varint(buf, n)
+        self.type, n = decode_varint(buf, 0)
+        self.length, m = decode_varint(buf, n)
     def __bytes__(self):
         return b''
 
@@ -33,16 +25,11 @@ class Http3DataFrame(Http3Frame):
     def __init__(self, buf=None):
         self.payload = b''; super().__init__(buf) if buf else None
     def unpack(self, buf):
-        self.type, n = _decode_varint(buf, 0)
-        self.length, m = _decode_varint(buf, n)
+        self.type, n = decode_varint(buf, 0)
+        self.length, m = decode_varint(buf, n)
         self.payload = buf[n+m:n+m+self.length]
     def __bytes__(self):
-        import struct
-        hdr = b''
-        if self.type <= 63: hdr += bytes([self.type])
-        else: hdr += struct.pack('>H', self.type | 0x4000)
-        if len(self.payload) <= 63: hdr += bytes([len(self.payload)])
-        else: hdr += struct.pack('>H', len(self.payload) | 0x4000)
+        hdr = encode_varint(self.type) + encode_varint(len(self.payload))
         return hdr + self.payload
 
 
@@ -50,8 +37,8 @@ class Http3HeadersFrame(Http3Frame):
     def __init__(self, buf=None):
         self.encoded_headers = b''; super().__init__(buf) if buf else None
     def unpack(self, buf):
-        self.type, n = _decode_varint(buf, 0)
-        self.length, m = _decode_varint(buf, n)
+        self.type, n = decode_varint(buf, 0)
+        self.length, m = decode_varint(buf, n)
         self.encoded_headers = buf[n+m:n+m+self.length]
 
 
@@ -59,45 +46,45 @@ class Http3SettingsFrame(Http3Frame):
     def __init__(self, buf=None):
         self.settings = []; super().__init__(buf) if buf else None
     def unpack(self, buf):
-        self.type, n = _decode_varint(buf, 0)
-        self.length, m = _decode_varint(buf, n)
+        self.type, n = decode_varint(buf, 0)
+        self.length, m = decode_varint(buf, n)
         off = n + m
         end = off + self.length
         while off + 2 <= end:
-            sid, sn = _decode_varint(buf, off); off += sn
-            sval, sv = _decode_varint(buf, off); off += sv
+            sid, sn = decode_varint(buf, off); off += sn
+            sval, sv = decode_varint(buf, off); off += sv
             self.settings.append((sid, sval))
 
 
 class Http3GoawayFrame(Http3Frame):
     def unpack(self, buf):
-        self.type, n = _decode_varint(buf, 0)
-        self.length, m = _decode_varint(buf, n)
-        self.last_stream_id, _ = _decode_varint(buf, n+m)
+        self.type, n = decode_varint(buf, 0)
+        self.length, m = decode_varint(buf, n)
+        self.last_stream_id, _ = decode_varint(buf, n+m)
 
 
 class Http3PushPromiseFrame(Http3Frame):
     def __init__(self, buf=None):
         self.push_id = 0; self.encoded_headers = b''; super().__init__(buf) if buf else None
     def unpack(self, buf):
-        self.type, n = _decode_varint(buf, 0)
-        self.length, m = _decode_varint(buf, n)
-        self.push_id, p = _decode_varint(buf, n+m)
+        self.type, n = decode_varint(buf, 0)
+        self.length, m = decode_varint(buf, n)
+        self.push_id, p = decode_varint(buf, n+m)
         self.encoded_headers = buf[n+m+p:n+m+p+self.length-p]
 
 
 class Http3CancelPushFrame(Http3Frame):
     def unpack(self, buf):
-        self.type, n = _decode_varint(buf, 0)
-        self.length, m = _decode_varint(buf, n)
-        self.push_id, _ = _decode_varint(buf, n+m)
+        self.type, n = decode_varint(buf, 0)
+        self.length, m = decode_varint(buf, n)
+        self.push_id, _ = decode_varint(buf, n+m)
 
 
 class Http3MaxPushIdFrame(Http3Frame):
     def unpack(self, buf):
-        self.type, n = _decode_varint(buf, 0)
-        self.length, m = _decode_varint(buf, n)
-        self.max_push_id, _ = _decode_varint(buf, n+m)
+        self.type, n = decode_varint(buf, 0)
+        self.length, m = decode_varint(buf, n)
+        self.max_push_id, _ = decode_varint(buf, n+m)
 
 
 # Frame dispatch
@@ -111,8 +98,8 @@ _http3_sw = {
 def parse_http3_frames(buf):
     frames = []; off = 0
     while off < len(buf):
-        ftype, n = _decode_varint(buf, off)
-        flen, m = _decode_varint(buf, off+n)
+        ftype, n = decode_varint(buf, off)
+        flen, m = decode_varint(buf, off+n)
         total = n + m + flen
         cls = _http3_sw.get(ftype, Http3Frame)
         frames.append(cls(buf[off:off+total]))

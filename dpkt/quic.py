@@ -6,14 +6,26 @@ from . import dpkt
 
 # ---- Variable-Length Integer (RFC 9000 §16) ----
 def decode_varint(buf, offset=0):
-    """Decode QUIC variable-length integer. Returns (value, bytes_consumed)."""
-    if offset >= len(buf): return 0, 0
+    """Decode QUIC variable-length integer. Returns (value, bytes_consumed).
+    Raises dpkt.NeedData if buffer is too short."""
+    if offset >= len(buf):
+        raise dpkt.NeedData('varint: buffer too short')
     b = buf[offset]
     tag = b >> 6
-    if tag == 0: return (b & 0x3f, 1)
-    elif tag == 1: return (struct.unpack('>H', buf[offset:offset+2])[0] & 0x3fff, 2)
-    elif tag == 2: return (struct.unpack('>I', buf[offset:offset+4])[0] & 0x3fffffff, 4)
-    else: return (struct.unpack('>Q', buf[offset:offset+8])[0] & 0x3fffffffffffffff, 8)
+    if tag == 0:
+        return (b & 0x3f, 1)
+    elif tag == 1:
+        if offset + 2 > len(buf):
+            raise dpkt.NeedData('varint: need 2 bytes')
+        return (struct.unpack('>H', buf[offset:offset+2])[0] & 0x3fff, 2)
+    elif tag == 2:
+        if offset + 4 > len(buf):
+            raise dpkt.NeedData('varint: need 4 bytes')
+        return (struct.unpack('>I', buf[offset:offset+4])[0] & 0x3fffffff, 4)
+    else:
+        if offset + 8 > len(buf):
+            raise dpkt.NeedData('varint: need 8 bytes')
+        return (struct.unpack('>Q', buf[offset:offset+8])[0] & 0x3fffffffffffffff, 8)
 
 def encode_varint(v):
     """Encode value as QUIC variable-length integer."""
@@ -29,7 +41,7 @@ LONG_INITIAL = 0; LONG_0RTT = 1; LONG_HANDSHAKE = 2; LONG_RETRY = 3
 FRAME_PADDING = 0; FRAME_PING = 1; FRAME_ACK = 2; FRAME_ACK_ECN = 3
 FRAME_RESET_STREAM = 4; FRAME_STOP_SENDING = 5; FRAME_CRYPTO = 6
 FRAME_NEW_TOKEN = 7; FRAME_STREAM = 8; FRAME_MAX_DATA = 16
-FRAME_MAX_STREAM_DATA = 17; FRAME_CONNECTION_CLOSE = 0x1c
+FRAME_MAX_STREAM_DATA = 17; FRAME_CONNECTION_CLOSE = 0x1c; FRAME_CONNECTION_CLOSE_APP = 0x1d
 
 # ---- Frame Base Class ----
 class QUICFrame(object):
@@ -102,6 +114,7 @@ class QUICAckFrame(QUICFrame):
         self.largest_ack, n = decode_varint(buf, off); off += n
         self.ack_delay, n = decode_varint(buf, off); off += n
         self.block_count, n = decode_varint(buf, off); off += n
+        self.first_ack_range, n = decode_varint(buf, off); off += n
         self.blocks = []
         for _ in range(self.block_count):
             gap, n = decode_varint(buf, off); off += n
@@ -123,14 +136,19 @@ class QUICConnectionCloseFrame(QUICFrame):
     def unpack(self, buf):
         self.type = buf[0]; off = 1
         self.error_code, n = decode_varint(buf, off); off += n
-        self.frame_type, n = decode_varint(buf, off); off += n
-        self.reason = buf[off:]
+        if self.type == FRAME_CONNECTION_CLOSE:  # 0x1c: transport close
+            self.frame_type, n = decode_varint(buf, off); off += n
+        else:  # 0x1d: application close, no frame_type field
+            self.frame_type = None
+        reason_len, n = decode_varint(buf, off); off += n
+        self.reason = buf[off:off + reason_len]
 
 # Frame dispatch
 _frame_sw = {
     FRAME_PADDING: QUICFrame, FRAME_PING: QUICFrame,
     FRAME_ACK: QUICAckFrame, FRAME_ACK_ECN: QUICAckFrame,
     FRAME_CRYPTO: QUICCryptoFrame, FRAME_CONNECTION_CLOSE: QUICConnectionCloseFrame,
+    FRAME_CONNECTION_CLOSE_APP: QUICConnectionCloseFrame,
     FRAME_MAX_DATA: QUICMaxDataFrame, FRAME_MAX_STREAM_DATA: QUICMaxStreamDataFrame,
 }
 
@@ -139,13 +157,47 @@ def get_frame_parser(frame_type):
     if 0x08 <= frame_type <= 0x0f: return QUICStreamFrame
     return _frame_sw.get(frame_type, QUICFrame)
 
+def _frame_byte_size(f, raw_buf):
+    """Calculate the total byte size of a parsed frame from its raw buffer."""
+    if f.type == FRAME_PADDING:
+        return 1
+    if isinstance(f, QUICCryptoFrame):
+        return len(f)
+    if isinstance(f, QUICStreamFrame):
+        sz = 1  # type byte
+        sz += len(encode_varint(f.stream_id))
+        if f.type & 0x04:  # OFF bit
+            sz += len(encode_varint(f.offset))
+        if f.type & 0x02:  # LEN bit
+            sz += len(encode_varint(f.length))
+        sz += len(f.data)
+        return sz
+    if isinstance(f, QUICAckFrame):
+        sz = 1  # type byte
+        sz += len(encode_varint(f.largest_ack))
+        sz += len(encode_varint(f.ack_delay))
+        sz += len(encode_varint(f.block_count))
+        sz += len(encode_varint(f.first_ack_range))
+        for gap, ack_len in f.blocks:
+            sz += len(encode_varint(gap)) + len(encode_varint(ack_len))
+        return sz
+    return len(f)  # QUICFrame.__len__ returns 1 for simple frames
+
+
 def parse_frames(buf):
     frames = []; off = 0
     while off < len(buf):
-        cls = get_frame_parser(buf[off])
-        f = cls(buf[off:]); frames.append(f)
-        if f.type == FRAME_PADDING: off += 1
-        else: off += 1  # Minimal: just advance past type byte for now
+        frame_type = buf[off]
+        if frame_type == FRAME_PADDING:
+            off += 1
+            continue
+        cls = get_frame_parser(frame_type)
+        try:
+            f = cls(buf[off:])
+            frames.append(f)
+            off += _frame_byte_size(f, buf[off:])
+        except (dpkt.NeedData, IndexError, struct.error):
+            break
     return frames
 
 # ---- QUIC Packet Header ----
@@ -160,9 +212,11 @@ class QUIC(dpkt.Packet):
                 is_long = buf[0] & 0x80
                 if is_long:
                     inst = super().__new__(QUICLongHeader)
+                    inst.unpack(buf)
                 else:
                     inst = super().__new__(QUICShortHeader)
-                inst.unpack(buf)
+                    dcid_len = kwargs.get('dcid_len', 0)
+                    inst.unpack(buf, dcid_len=dcid_len)
                 return inst
         return super().__new__(cls)
 
@@ -177,15 +231,21 @@ class QUICLongHeader(dpkt.Packet):
         self.dcid = buf[off:off+self.dcid_len]; off += self.dcid_len
         self.scid_len = buf[off]; off += 1
         self.scid = buf[off:off+self.scid_len]; off += self.scid_len
+        # Retry packet: token + 16-byte integrity tag, no Length/PN/payload
+        if self.long_pkt_type == LONG_RETRY:
+            self.retry_token = buf[off:-16]
+            self.retry_integrity_tag = buf[-16:]
+            self.pkt_number = b''
+            self.data = b''
+            self.frames = []
+            return
         if self.long_pkt_type == LONG_INITIAL:
             self.token_len, n = decode_varint(buf, off); off += n
             self.token = buf[off:off+self.token_len]; off += self.token_len
         self.length, n = decode_varint(buf, off); off += n
         remaining = buf[off:off+self.length]
         off += self.length
-        n_bytes = (self.flags & 3) + 1  # RFC 9000 §17.2: 0b00→1, 0b01→2, 0b10→3, 0b11→4
-        if self.long_pkt_type == LONG_INITIAL and (self.flags & 3) == 2:
-            n_bytes = 4  # Initial: 0b10 → 4 bytes
+        n_bytes = (self.flags & 3) + 1  # RFC 9000 §17.2: 0b00->1, 0b01->2, 0b10->3, 0b11->4
         self.pkt_number = remaining[:n_bytes]
         self.__hdr_len__ = off + n_bytes
         payload = remaining[n_bytes:]
@@ -214,11 +274,14 @@ class QUICLongHeader(dpkt.Packet):
 
 
 class QUICShortHeader(dpkt.Packet):
-    def unpack(self, buf):
+    def unpack(self, buf, dcid_len=0):
         self.flags = buf[0]
-        self.dcid = buf[1:21]  # up to 20 bytes
-        self.pkt_number = buf[21:25]  # partially encrypted
-        self.frames = parse_frames(buf[25:]) if len(buf) > 25 else []
+        self.dcid = buf[1:1 + dcid_len]
+        pn_offset = 1 + dcid_len
+        pn_len = (self.flags & 3) + 1  # PN length from lower 2 bits
+        self.pkt_number = buf[pn_offset:pn_offset + pn_len]
+        payload_offset = pn_offset + pn_len
+        self.frames = parse_frames(buf[payload_offset:]) if payload_offset < len(buf) else []
         self.data = b''
 
 
@@ -318,3 +381,52 @@ def test_quic_decrypt():
     dec = pkt.decrypt()
     assert dec.pkt_number == 0
     assert len(dec.frames) >= 1
+
+def test_quic_ack_frame():
+    """ACK frame with first_ack_range."""
+    buf = bytes([FRAME_ACK]) + encode_varint(10) + encode_varint(0) + encode_varint(0) + encode_varint(5)
+    f = QUICAckFrame(buf)
+    assert f.largest_ack == 10
+    assert f.first_ack_range == 5
+    assert f.block_count == 0
+
+def test_quic_connection_close():
+    """ConnectionClose transport (0x1c) vs app (0x1d)."""
+    # Transport close: error_code + frame_type + reason_len + reason
+    buf = bytes([FRAME_CONNECTION_CLOSE]) + encode_varint(1) + encode_varint(0x08) + encode_varint(3) + b'err'
+    f = QUICConnectionCloseFrame(buf)
+    assert f.error_code == 1
+    assert f.frame_type == 0x08
+    assert f.reason == b'err'
+    # App close: error_code + reason_len + reason (no frame_type)
+    buf2 = bytes([FRAME_CONNECTION_CLOSE_APP]) + encode_varint(2) + encode_varint(2) + b'ok'
+    f2 = QUICConnectionCloseFrame(buf2)
+    assert f2.error_code == 2
+    assert f2.frame_type is None
+    assert f2.reason == b'ok'
+
+def test_quic_retry_packet():
+    """QUIC Long Header Retry packet."""
+    token = b'retry_token_data'
+    tag = b'\x00' * 16  # 16-byte integrity tag
+    buf = (bytes([0xf0]) +                # flags: long pkt type 3 (RETRY)
+           struct.pack('>I', 0xff00001d) + # version
+           bytes([4]) + b'\x01\x02\x03\x04' +  # dcid
+           bytes([0]) +                    # scid (empty)
+           token + tag)
+    pkt = QUIC(buf)
+    assert isinstance(pkt, QUICLongHeader)
+    assert pkt.long_pkt_type == LONG_RETRY
+    assert pkt.retry_token == token
+    assert pkt.retry_integrity_tag == tag
+    assert pkt.frames == []
+
+def test_quic_short_header():
+    """QUIC Short Header with dcid_len parameter."""
+    dcid = b'\x01' * 8
+    # flags=0x40 (short header, PN length = 1 byte), PN=0x01, payload=PING
+    buf = bytes([0x40]) + dcid + bytes([FRAME_PING])
+    pkt = QUIC(buf, dcid_len=8)
+    assert isinstance(pkt, QUICShortHeader)
+    assert pkt.dcid == dcid
+    assert len(pkt.pkt_number) == 1
