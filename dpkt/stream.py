@@ -4,7 +4,6 @@ from __future__ import print_function
 from __future__ import absolute_import
 
 import socket
-import struct
 
 from . import dpkt
 from . import ethernet as eth_mod
@@ -72,6 +71,8 @@ class DirectionBuffer(object):
                     new_start = self.next_seq - seg_rel_seq
                     self.contiguous.extend(seg_data[new_start:])
                     self.next_seq += len(seg_data) - new_start
+            # Update total_buffered after cascade merge
+            self.total_buffered = len(self.contiguous) + sum(len(d) for _, _, d in self.segments)
         else:
             # Out-of-order: insert sorted by rel_seq
             self.segments.append((rel_seq, ack, payload))
@@ -84,7 +85,12 @@ class DirectionBuffer(object):
                     prev_seq, prev_ack, prev_data = merged[-1]
                     overlap_off = seg[0] - prev_seq
                     if overlap_off < len(prev_data):
-                        new_data = prev_data[:overlap_off] + seg[2]
+                        # Overlay new segment onto previous, preserving tail
+                        new_len = max(len(prev_data), overlap_off + len(seg[2]))
+                        new_data = bytearray(new_len)
+                        new_data[:len(prev_data)] = prev_data
+                        new_data[overlap_off:overlap_off + len(seg[2])] = seg[2]
+                        new_data = bytes(new_data)
                     else:
                         gap = overlap_off - len(prev_data)
                         new_data = prev_data + b'\x00' * gap + seg[2]
@@ -92,6 +98,8 @@ class DirectionBuffer(object):
                 else:
                     merged.append(seg)
             self.segments = merged
+            # Recalculate total_buffered after merge
+            self.total_buffered = len(self.contiguous) + sum(len(d) for _, _, d in self.segments)
 
     def get_data(self, fill_gaps=False):
         if fill_gaps:
@@ -143,12 +151,12 @@ class Connection(object):
     def is_closed(self):
         return self.c2s.is_complete and self.s2c.is_complete
 
-    def feed(self, ip, tcp):
-        """Feed a parsed IP+TCP packet to the correct direction."""
-        if tcp.sport == self.src_port:
-            self.c2s.feed(tcp.seq, tcp.ack, tcp.data, tcp.flags)
+    def feed(self, src_ip, sport, seq, ack, data, flags):
+        """Feed packet data to the correct direction."""
+        if src_ip == self.src_ip and sport == self.src_port:
+            self.c2s.feed(seq, ack, data, flags)
         else:
-            self.s2c.feed(tcp.seq, tcp.ack, tcp.data, tcp.flags)
+            self.s2c.feed(seq, ack, data, flags)
 
     def merged_data(self, fill_gaps=False):
         """Return a single byte sequence with both directions ordered by seq/ack causality."""
@@ -214,8 +222,14 @@ class StreamReassembler(object):
 
     def feed(self, ip, tcp_pkt):
         """Feed one parsed IP+TCP packet."""
-        conn_id = (socket.inet_ntoa(ip.src), tcp_pkt.sport,
-                   socket.inet_ntoa(ip.dst), tcp_pkt.dport)
+        src_ip = socket.inet_ntoa(ip.src)
+        dst_ip = socket.inet_ntoa(ip.dst)
+        a = (src_ip, tcp_pkt.sport)
+        b = (dst_ip, tcp_pkt.dport)
+        if a <= b:
+            conn_id = a + b
+        else:
+            conn_id = b + a
         if conn_id not in self.connections:
             if len(self.connections) >= self.max_connections:
                 self._evict_one()
@@ -223,7 +237,11 @@ class StreamReassembler(object):
                 src_ip=conn_id[0], src_port=conn_id[1],
                 dst_ip=conn_id[2], dst_port=conn_id[3])
         conn = self.connections[conn_id]
-        conn.feed(ip, tcp_pkt)
+        # Determine direction based on actual packet source
+        if src_ip == conn.src_ip and tcp_pkt.sport == conn.src_port:
+            conn.c2s.feed(tcp_pkt.seq, tcp_pkt.ack, tcp_pkt.data, tcp_pkt.flags)
+        else:
+            conn.s2c.feed(tcp_pkt.seq, tcp_pkt.ack, tcp_pkt.data, tcp_pkt.flags)
         if self.output_mode == 'separate':
             data_c2s = conn.c2s.get_data(fill_gaps=self.fill_gaps)
             data_s2c = conn.s2c.get_data(fill_gaps=self.fill_gaps)
@@ -287,6 +305,12 @@ class StreamReassembler(object):
             del self.connections[worst[0]]
 
     def find(self, src=None, sport=None, dst=None, dport=None):
+        if src is not None and sport is not None and dst is not None and dport is not None:
+            # Exact match: normalize key for lookup
+            a = (src, sport)
+            b = (dst, dport)
+            conn_id = a + b if a <= b else b + a
+            return self.connections.get(conn_id)
         for cid, conn in self.connections.items():
             if (src is None or cid[0] == src) and \
                (sport is None or cid[1] == sport) and \
@@ -382,6 +406,31 @@ def test_direction_buffer_fin_with_gap():
     assert buf.is_complete  # now all bytes received
 
 
+def test_direction_buffer_overlap_preserves_tail():
+    """Overlapping merge preserves non-overlapping tail of previous segment."""
+    buf = DirectionBuffer()
+    buf.feed(seq=0, ack=0, payload=b'', flags=tcp_mod.TH_SYN)
+    # Two out-of-order segments that overlap:
+    # Segment A: ABCDEFGH at seq=1 (out-of-order, gap at seq=1 relative to next_seq=1... no)
+    # Use seq values relative to isn=0: next_seq starts at 1 after SYN
+    # Feed out-of-order: seq=3 (gap at 1-2), so it's buffered
+    buf.feed(seq=3, ack=0, payload=b'CDEFGH', flags=tcp_mod.TH_ACK)
+    assert len(buf.segments) == 1  # buffered as out-of-order
+    # Feed another out-of-order that overlaps: seq=7, payload='XY12' overlaps EFGH at offset 4
+    # prev: rel_seq=3, data='CDEFGH' (len=6), seg: rel_seq=7
+    # overlap_off = 7-3 = 4, which is < len('CDEFGH')=6, so overlap case
+    # New data should be: CDEFGH[:4] + XY12 = 'CDEFXY12', preserving nothing after...
+    # Actually that drops GH. With fix: overlay XY12 at offset 4 → CDEFXY12 (8 bytes)
+    # GH is at offsets 4-5, overwritten by XY. So tail is gone here.
+    # Better test: overlap_off < len(prev), and seg is shorter than remaining tail
+    # Feed seq=5, payload='XY' (2 bytes): overlap_off = 5-3 = 2 < 6
+    # prev_data = 'CDEFGH', overlay at offset 2: CDEFGH[0:2] + XY + CDEFGH[4:] = CDXYGH
+    buf.feed(seq=5, ack=0, payload=b'XY', flags=tcp_mod.TH_ACK)
+    # Merged: CDXYGH (tail GH preserved)
+    assert len(buf.segments) == 1
+    assert buf.segments[0][2] == b'CDXYGH'
+
+
 def test_direction_buffer_flush():
     """flush() outputs all data even with gaps."""
     buf = DirectionBuffer()
@@ -437,6 +486,23 @@ def test_connection_properties():
     assert not conn.is_closed
 
 
+def test_stream_reassembler_bidirectional():
+    """Both directions of same connection map to same Connection."""
+    reasm = StreamReassembler()
+    # SYN from client
+    ip1 = ip_mod.IP(src=b'\x0a\x00\x00\x01', dst=b'\x0a\x00\x00\x02', p=6)
+    tcp1 = tcp_mod.TCP(sport=12345, dport=80, seq=0, flags=tcp_mod.TH_SYN, data=b'')
+    reasm.feed(ip1, tcp1)
+    # SYN-ACK from server (reversed direction)
+    ip2 = ip_mod.IP(src=b'\x0a\x00\x00\x02', dst=b'\x0a\x00\x00\x01', p=6)
+    tcp2 = tcp_mod.TCP(sport=80, dport=12345, seq=5000, flags=tcp_mod.TH_SYN | tcp_mod.TH_ACK, data=b'')
+    reasm.feed(ip2, tcp2)
+    assert len(reasm.connections) == 1  # NOT 2
+    conn = list(reasm.connections.values())[0]
+    assert conn.c2s.syn_received
+    assert conn.s2c.syn_received
+
+
 def test_stream_reassembler_feed():
     reasm = StreamReassembler(max_connections=100, max_buffer_per_dir=1024*1024)
     ip = ip_mod.IP(src=b'\x0a\x00\x00\x01', dst=b'\x0a\x00\x00\x02', p=6)
@@ -444,7 +510,11 @@ def test_stream_reassembler_feed():
     ip.data = tcp_pkt
     reasm.feed(ip, tcp_pkt)
     conn_id = ('10.0.0.1', 12345, '10.0.0.2', 445)
-    assert conn_id in reasm.connections
+    # conn_id is normalized: smaller (ip,port) pair first
+    a = ('10.0.0.1', 12345)
+    b = ('10.0.0.2', 445)
+    normalized = a + b if a <= b else b + a
+    assert normalized in reasm.connections
     conn = reasm[conn_id]
     assert conn.c2s.syn_received
 
@@ -473,6 +543,7 @@ def test_stream_reassembler_find():
 def test_stream_reassembler_feed_pcap():
     """feed_pcap() iterates pcap Reader and calls feed()."""
     import io
+    import struct
     tcp_pkt = tcp_mod.TCP(sport=12345, dport=80, seq=0, flags=tcp_mod.TH_SYN, data=b'')
     ip_pkt = ip_mod.IP(src=b'\x0a\x00\x00\x01', dst=b'\x0a\x00\x00\x02', p=6, data=tcp_pkt)
     eth_pkt = eth_mod.Ethernet(src=b'\x00' * 6, dst=b'\x00' * 6, type=eth_mod.ETH_TYPE_IP, data=ip_pkt)
