@@ -156,8 +156,11 @@ class POP3(object):
             self.commands.append(POP3Command(line))
             self._buffer = self._buffer[idx:]
 
-        # Flush pending single-line response if no more data to determine
-        if self._pending and not self._in_multiline:
+        # Flush pending single-line response if buffer is empty and no more
+        # data lines could follow (i.e., we're not in multiline mode and the
+        # pending response is definitely single-line because no data lines
+        # followed it in this feed call)
+        if self._pending and not self._in_multiline and not self._buffer:
             self.responses.append(POP3Response(self._pending))
             self._pending = None
 
