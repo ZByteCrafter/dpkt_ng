@@ -247,6 +247,7 @@ class LSAv3Header(dpkt.Packet):
 
 class LSARouterV3(LSAv3Header):
     def __init__(self, *args, **kwargs):
+        self.opts = b'\x00' * 3
         self.links = []
         super(LSARouterV3, self).__init__(*args, **kwargs)
 
@@ -268,7 +269,7 @@ class LSARouterV3(LSAv3Header):
 
     def __bytes__(self):
         hdr = self.pack_hdr()
-        body = bytes([self.flags, 0, 0, 0])
+        body = bytes([self.flags]) + bytes(self.opts)
         for link in self.links:
             body += struct.pack('>BBHIII', link['type'], link['rsv'], link['metric'],
                                 link['interface_id'], link['neighbor_interface_id'],
