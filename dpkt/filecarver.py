@@ -30,14 +30,19 @@ class MIMEParser(object):
         if not m: return results
         boundary = b'--' + m.group(1)
         parts = raw_email.split(boundary)
-        for part in parts:
+        for part in parts[1:]:  # Skip preamble before first boundary
             if b'Content-Disposition' not in part: continue
             fn_match = re.search(rb'filename="?([^"\r\n]+)"?', part)
             filename = fn_match.group(1).decode('latin-1', errors='replace') if fn_match else 'attachment'
             header_end = part.find(b'\r\n\r\n')
             if header_end < 0: continue
             body = part[header_end+4:]
-            body = body.rstrip(b'\r\n').rstrip(b'--').rstrip(b'\r\n')
+            if body.endswith(b'--\r\n'):
+                body = body[:-4]
+            elif body.endswith(b'--'):
+                body = body[:-2]
+            elif body.endswith(b'\r\n'):
+                body = body[:-2]
             # Decode
             encoding = b'identity'
             enc_match = re.search(rb'Content-Transfer-Encoding:\s*(\S+)', part, re.IGNORECASE)
@@ -46,11 +51,11 @@ class MIMEParser(object):
                 try:
                     body = re.sub(rb'\s', b'', body)
                     body = base64.b64decode(body)
-                except: pass
+                except Exception: pass
             elif encoding == b'quoted-printable':
                 try:
                     buf = io.BytesIO(); quopri.decode(io.BytesIO(body), buf); body = buf.getvalue()
-                except: pass
+                except Exception: pass
             mime_type = ''
             mt_match = re.search(rb'Content-Type:\s*([^\r\n;]+)', part, re.IGNORECASE)
             if mt_match: mime_type = mt_match.group(1).decode('latin-1', errors='replace')
@@ -132,7 +137,7 @@ class FileCarver(object):
             f = ExtractedFile(filename, body, 'http')
             f.direction = direction; f.mime_type = mime
             self.files.append(f)
-        except: pass
+        except Exception: pass
 
     def _carve_http_request(self, data, conn_id, direction):
         try:
@@ -150,18 +155,18 @@ class FileCarver(object):
             f = ExtractedFile(filename, body, 'http')
             f.direction = 'upload'
             self.files.append(f)
-        except: pass
+        except Exception: pass
 
     def _carve_ftp(self, data_c2s, data_s2c, conn_id):
-        # Simple: extract filename from RETR/STOR in control channel
-        for direction, data in [('download', data_s2c), ('upload', data_c2s)]:
-            if data and len(data) > 10:
-                m = re.search(rb'(?:RETR|STOR)\s+(\S+)', data, re.IGNORECASE)
-                filename = m.group(1).decode('latin-1', errors='replace') if m else 'ftp_file'
-                f = ExtractedFile(filename, data, 'ftp')
-                f.direction = direction
-                self.files.append(f)
-                return
+        """Extract files from FTP data connections."""
+        # Parse control channel for PASV/PORT to identify data channels
+        # For now, extract from data channel (port 20 or passive)
+        if data_s2c:
+            # Data channel: server sends file data
+            fname = 'ftp_data_%s_%d.bin' % (conn_id[0], conn_id[1])
+            f = ExtractedFile(fname, data_s2c, 'ftp')
+            f.direction = 'download'
+            self.files.append(f)
 
     def _carve_smtp(self, data_c2s, data_s2c, conn_id):
         """Extract from SMTP: DATA command body -> full email -> MIME."""
@@ -220,7 +225,7 @@ class FileCarver(object):
                     elif isinstance(pkt.data, smb2_mod.SMB2Write) and getattr(pkt.data, 'file_data', b''):
                         f = ExtractedFile('smb_write', pkt.data.file_data, 'smb')
                         f.direction = 'upload'; self.files.append(f)
-            except: pass
+            except Exception: pass
             # Try SMB1
             try:
                 if data[:4] == b'\xffSMB':
@@ -229,7 +234,7 @@ class FileCarver(object):
                         if hasattr(cmd, 'file_data') and cmd.file_data:
                             f = ExtractedFile('smb1_file', cmd.file_data, 'smb')
                             self.files.append(f)
-            except: pass
+            except Exception: pass
 
     def export_files(self, directory):
         import os
