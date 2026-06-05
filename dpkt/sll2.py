@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Linux libpcap "cooked v2" capture encapsulation."""
+from __future__ import absolute_import
 
 from . import arp
 from . import dpkt

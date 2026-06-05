@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Intermediate System to Intermediate System."""
+from __future__ import absolute_import, print_function
 import struct
 from . import dpkt
 

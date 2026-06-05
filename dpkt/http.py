@@ -1,6 +1,8 @@
 # $Id: http.py 86 2013-03-05 19:25:19Z andrewflnr@gmail.com $
 # -*- coding: utf-8 -*-
 """Hypertext Transfer Protocol."""
+from __future__ import print_function
+from __future__ import absolute_import
 from collections import OrderedDict
 from . import dpkt
 from .compat import BytesIO, iteritems

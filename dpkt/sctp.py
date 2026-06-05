@@ -1,6 +1,8 @@
 # $Id: sctp.py 23 2006-11-08 15:45:33Z dugsong $
 # -*- coding: utf-8 -*-
 """Stream Control Transmission Protocol."""
+from __future__ import print_function
+from __future__ import absolute_import
 
 from . import dpkt
 from . import crc32c

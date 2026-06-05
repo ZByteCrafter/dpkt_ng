@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """Route topology reconstruction from routing protocol captures."""
+from __future__ import absolute_import, print_function
 import json
 import socket
 import struct

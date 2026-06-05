@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """QUIC protocol (RFC 9000) - Phase 1: Headers + Frames."""
+from __future__ import absolute_import, print_function
 import struct
 from . import dpkt
 

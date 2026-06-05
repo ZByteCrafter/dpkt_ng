@@ -1,8 +1,17 @@
 import sys
-from setuptools import setup
+
+try:
+    from setuptools import setup
+except ImportError:
+    from distutils.core import setup
 
 package_name = 'dpkt'
 description = 'fast, simple packet creation / parsing, with definitions for the basic TCP/IP protocols'
+readme = open('README.md').read()
+requirements = []
+
+# PyPI Readme
+long_description = open('README.md').read()
 
 # Pull in the package
 package = __import__(package_name)
@@ -18,11 +27,10 @@ setup(name=package_name,
       author_email=package.__author_email__,
       url=package.__url__,
       description=description,
-      long_description=open('README.md').read(),
+      long_description=long_description,
       long_description_content_type='text/markdown',
       packages=['dpkt'],
-      install_requires=[],
-      python_requires='>=3.9',
+      install_requires=requirements,
       license='BSD',
       zip_safe=False,
       classifiers=[
@@ -30,12 +38,12 @@ setup(name=package_name,
           'Intended Audience :: Developers',
           'License :: OSI Approved :: BSD License',
           'Natural Language :: English',
-          'Programming Language :: Python :: 3',
+          'Programming Language :: Python :: 2.7',
+          'Programming Language :: Python :: 3.5',
+          'Programming Language :: Python :: 3.6',
+          'Programming Language :: Python :: 3.7',
+          'Programming Language :: Python :: 3.8',
           'Programming Language :: Python :: 3.9',
-          'Programming Language :: Python :: 3.10',
-          'Programming Language :: Python :: 3.11',
-          'Programming Language :: Python :: 3.12',
-          'Programming Language :: Python :: 3.13',
           'Programming Language :: Python :: Implementation :: CPython',
           'Programming Language :: Python :: Implementation :: PyPy',
       ])

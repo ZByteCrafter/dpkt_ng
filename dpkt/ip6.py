@@ -1,6 +1,8 @@
 # $Id: ip6.py 87 2013-03-05 19:41:04Z andrewflnr@gmail.com $
 # -*- coding: utf-8 -*-
 """Internet Protocol, version 6."""
+from __future__ import print_function
+from __future__ import absolute_import
 
 from . import dpkt
 from . import ip

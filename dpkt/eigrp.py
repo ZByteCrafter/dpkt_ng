@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 """Enhanced Interior Gateway Routing Protocol."""
+from __future__ import absolute_import
+from __future__ import print_function
 
 import struct
 

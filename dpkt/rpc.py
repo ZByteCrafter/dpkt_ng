@@ -1,6 +1,7 @@
 # $Id: rpc.py 23 2006-11-08 15:45:33Z dugsong $
 # -*- coding: utf-8 -*-
 """Remote Procedure Call."""
+from __future__ import absolute_import
 
 import struct
 

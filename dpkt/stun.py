@@ -1,6 +1,8 @@
 # $Id: stun.py 47 2008-05-27 02:10:00Z jon.oberheide $
 # -*- coding: utf-8 -*-
 """Simple Traversal of UDP through NAT."""
+from __future__ import print_function
+from __future__ import absolute_import
 
 import struct
 

@@ -4,6 +4,8 @@
 Ethernet II, LLC (802.3+802.2), LLC/SNAP, and Novell raw 802.3,
 with automatic 802.1q, MPLS, PPPoE, and Cisco ISL decapsulation.
 """
+from __future__ import print_function
+from __future__ import absolute_import
 
 import struct
 from zlib import crc32

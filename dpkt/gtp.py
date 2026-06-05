@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 """GPRS Tunneling Protocol (GTPv1/GTPv2)."""
+from __future__ import absolute_import, print_function
 import struct
 from . import dpkt
 from .compat import compat_ord

@@ -4,6 +4,7 @@
 
 The dpkt project is a python module for fast, simple packet parsing, with definitions for the basic TCP/IP protocols.
 """
+from __future__ import absolute_import, print_function
 
 import copy
 import struct

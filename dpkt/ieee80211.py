@@ -1,6 +1,8 @@
 # $Id: 80211.py 53 2008-12-18 01:22:57Z jon.oberheide $
 # -*- coding: utf-8 -*-
 """IEEE 802.11."""
+from __future__ import print_function
+from __future__ import absolute_import
 
 import struct
 

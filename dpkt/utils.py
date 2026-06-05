@@ -52,7 +52,7 @@ def make_dict(obj):
 
 
 def is_builtin(obj):
-    return obj.__class__.__module__ == 'builtins'
+    return obj.__class__.__module__ in ['__builtin__', 'builtins']
 
 
 def deprecation_warning(*args):

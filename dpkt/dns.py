@@ -1,6 +1,8 @@
 # $Id: dns.py 27 2006-11-21 01:22:52Z dahelder $
 # -*- coding: utf-8 -*-
 """Domain Name System."""
+from __future__ import print_function
+from __future__ import absolute_import
 
 import struct
 import codecs
