@@ -1,7 +1,6 @@
 # $Id: icmp6.py 23 2006-11-08 15:45:33Z dugsong $
 # -*- coding: utf-8 -*-
 """Internet Control Message Protocol for IPv6."""
-from __future__ import absolute_import
 
 from . import dpkt
 

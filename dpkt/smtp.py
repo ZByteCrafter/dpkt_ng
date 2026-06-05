@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """SMTP protocol parsing (RFC 5321)."""
-from __future__ import absolute_import, print_function
 
 
 class SMTPCommand(object):

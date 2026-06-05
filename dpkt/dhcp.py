@@ -1,8 +1,6 @@
 # $Id: dhcp.py 23 2006-11-08 15:45:33Z dugsong $
 # -*- coding: utf-8 -*-
 """Dynamic Host Configuration Protocol."""
-from __future__ import print_function
-from __future__ import absolute_import
 
 import struct
 

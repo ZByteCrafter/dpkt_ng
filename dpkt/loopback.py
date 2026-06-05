@@ -4,7 +4,6 @@
 
 # https://wiki.wireshark.org/NullLoopback
 
-from __future__ import absolute_import
 
 from . import dpkt
 from . import ethernet

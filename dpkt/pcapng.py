@@ -3,9 +3,6 @@
 
 # pylint: disable=no-member
 # pylint: disable=attribute-defined-outside-init
-from __future__ import print_function
-from __future__ import absolute_import
-from __future__ import division  # so python 2 doesn't do integer division
 
 from struct import pack as struct_pack, unpack as struct_unpack
 from time import time

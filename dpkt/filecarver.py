@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """File carving from network captures."""
-from __future__ import absolute_import, print_function
 import re
 import base64
 import quopri

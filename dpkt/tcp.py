@@ -1,8 +1,6 @@
 # $Id: tcp.py 42 2007-08-02 22:38:47Z jon.oberheide $
 # -*- coding: utf-8 -*-
 """Transmission Control Protocol."""
-from __future__ import print_function
-from __future__ import absolute_import
 
 from . import dpkt
 from .compat import compat_ord

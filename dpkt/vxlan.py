@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Virtual eXtensible Local Area Network (RFC 7348)."""
-from __future__ import absolute_import, print_function
 import struct
 from . import dpkt
 

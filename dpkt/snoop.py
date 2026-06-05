@@ -1,7 +1,6 @@
 # $Id$
 # -*- coding: utf-8 -*-
 """Snoop file format."""
-from __future__ import absolute_import
 
 import time
 from abc import abstractmethod

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """POP3 protocol parsing (RFC 1939)."""
-from __future__ import absolute_import, print_function
 
 
 class POP3Command(object):

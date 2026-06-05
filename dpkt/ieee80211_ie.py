@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """IEEE 802.11 Information Elements."""
-from __future__ import absolute_import, print_function
 import struct
 from . import dpkt
 

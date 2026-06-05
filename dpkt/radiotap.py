@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 """Radiotap"""
-from __future__ import print_function
-from __future__ import absolute_import
 
 from . import dpkt
 from . import ieee80211

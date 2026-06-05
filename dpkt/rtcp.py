@@ -3,7 +3,6 @@
 # RFC3550 and RFC3611
 
 """RTP Control Protocol."""
-from __future__ import absolute_import
 
 from . import dpkt
 from .dpkt import Packet

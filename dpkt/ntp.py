@@ -1,7 +1,6 @@
 # $Id: ntp.py 48 2008-05-27 17:31:15Z yardley $
 # -*- coding: utf-8 -*-
 """Network Time Protocol."""
-from __future__ import print_function
 
 from . import dpkt
 

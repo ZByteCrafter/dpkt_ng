@@ -1,8 +1,6 @@
 # $Id: icmp.py 45 2007-08-03 00:05:22Z jon.oberheide $
 # -*- coding: utf-8 -*-
 """Internet Control Message Protocol."""
-from __future__ import print_function
-from __future__ import absolute_import
 
 from . import dpkt
 

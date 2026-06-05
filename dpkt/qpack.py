@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """QPACK header compression (RFC 9204)."""
-from __future__ import absolute_import, print_function
 import struct
 
 # Instruction prefixes

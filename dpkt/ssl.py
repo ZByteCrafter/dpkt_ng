@@ -2,7 +2,6 @@
 # Portion Copyright 2012 Google Inc. All rights reserved.
 # -*- coding: utf-8 -*-
 """Secure Sockets Layer / Transport Layer Security."""
-from __future__ import absolute_import
 
 import struct
 import binascii

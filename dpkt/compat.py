@@ -1,43 +1,30 @@
-from __future__ import absolute_import
+"""Python 3 compatibility shims.
 
+These functions exist to ease the Python 2 to 3 transition.  For Python 3
+they are thin wrappers around the built-in equivalents.
+"""
 from struct import pack, unpack
-import sys
+from io import BytesIO
 
-if sys.version_info < (3,):
-    compat_ord = ord
-else:
-    def compat_ord(char):
-        return char
 
-try:
-    from itertools import izip
-    compat_izip = izip
-except ImportError:
-    compat_izip = zip
+def compat_ord(char):
+    """Return the integer value of a byte.
 
-try:
-    from cStringIO import StringIO
-except ImportError:
-    from io import StringIO
+    In Python 3, indexing a bytes object already returns an int.
+    """
+    return char
 
-try:
-    from BytesIO import BytesIO
-except ImportError:
-    from io import BytesIO
 
-if sys.version_info < (3,):
-    def iteritems(d, **kw):
-        return d.iteritems(**kw)
+compat_izip = zip
 
-    def intround(num):
-        return int(round(num))
 
-else:
-    def iteritems(d, **kw):
-        return iter(d.items(**kw))
+def iteritems(d, **kw):
+    """Iterate over dictionary items."""
+    return iter(d.items(**kw))
 
-    # python3 will return an int if you round to 0 decimal places
-    intround = round
+
+# python3 will return an int if you round to 0 decimal places
+intround = round
 
 
 def ntole(v):
@@ -55,6 +42,5 @@ def ntole64(v):
 
 
 def isstr(s):
-    """True if 's' is an instance of basestring in py2, or of str in py3"""
-    bs = getattr(__builtins__, 'basestring', str)
-    return isinstance(s, bs)
+    """True if 's' is an instance of str."""
+    return isinstance(s, str)

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """ATA over Ethernet Protocol."""
-from __future__ import absolute_import
 
 import struct
 

@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """IMAP4rev1 protocol parsing (RFC 3501)."""
-from __future__ import absolute_import, print_function
 
 
 class IMAPCommand(object):

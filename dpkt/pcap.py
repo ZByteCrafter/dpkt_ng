@@ -1,8 +1,6 @@
 # $Id: pcap.py 77 2011-01-06 15:59:38Z dugsong $
 # -*- coding: utf-8 -*-
 """Libpcap file format."""
-from __future__ import print_function
-from __future__ import absolute_import
 
 import sys
 import time

@@ -1,8 +1,6 @@
 # $Id: vrrp.py 88 2013-03-05 19:43:17Z andrewflnr@gmail.com $
 # -*- coding: utf-8 -*-
 """Virtual Router Redundancy Protocol."""
-from __future__ import print_function
-from __future__ import absolute_import
 
 from . import dpkt
 

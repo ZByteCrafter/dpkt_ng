@@ -1,8 +1,6 @@
 # $Id: h225.py 23 2006-11-08 15:45:33Z dugsong $
 # -*- coding: utf-8 -*-
 """ITU-T H.225.0 Call Signaling."""
-from __future__ import print_function
-from __future__ import absolute_import
 
 import struct
 

@@ -1,6 +1,4 @@
 """fast, simple packet creation and parsing."""
-from __future__ import absolute_import
-from __future__ import division
 import sys
 
 __author__ = 'Various'

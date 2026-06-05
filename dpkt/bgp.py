@@ -1,8 +1,6 @@
 # $Id: bgp.py 76 2011-01-06 15:51:30Z dugsong $
 # -*- coding: utf-8 -*-
 """Border Gateway Protocol."""
-from __future__ import print_function
-from __future__ import absolute_import
 
 import struct
 import socket

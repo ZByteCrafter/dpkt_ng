@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """Layer 2 Tunneling Protocol (RFC 2661, RFC 3931)."""
-from __future__ import absolute_import, print_function
 import struct
 from . import dpkt
 

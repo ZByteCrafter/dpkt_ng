@@ -1,6 +1,5 @@
 # -*- coding: utf-8 -*-
 """HTTP/3 frame parsing (RFC 9114). Transport-independent."""
-from __future__ import absolute_import, print_function
 from . import dpkt
 from .quic import decode_varint, encode_varint
 
